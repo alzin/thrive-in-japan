@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Box,
   Container,
   Typography,
   Card,
@@ -26,6 +27,9 @@ import {
   MenuItem,
   Switch,
   FormControlLabel,
+  Alert,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Add,
@@ -34,6 +38,8 @@ import {
   People,
   VideoCall,
   LocationOn,
+  CalendarMonth,
+  AccessTime,
   Star,
 } from '@mui/icons-material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
@@ -47,6 +53,7 @@ interface Session {
   description: string;
   type: 'SPEAKING' | 'EVENT';
   hostId: string;
+  hostName?: string;
   meetingUrl?: string;
   location?: string;
   scheduledAt: string;
@@ -61,7 +68,9 @@ export const SessionManagement: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionDialog, setSessionDialog] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
-  // const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [tabValue, setTabValue] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   
   type SessionType = 'SPEAKING' | 'EVENT';
   
@@ -87,7 +96,7 @@ export const SessionManagement: React.FC = () => {
     maxParticipants: 8,
     pointsRequired: 0,
     isActive: true,
-});
+  });
 
 
   useEffect(() => {
@@ -96,13 +105,25 @@ export const SessionManagement: React.FC = () => {
 
   const fetchSessions = async () => {
     try {
-      // setLoading(true);
-      const response = await api.get('/sessions/upcoming', { params: { limit: 50 } });
-      setSessions(response.data);
-    } catch (error) {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch all sessions for admin view
+      const response = await api.get('/sessions', { 
+        params: { 
+          limit: 100,
+          isActive: undefined // Get all sessions regardless of status
+        } 
+      });
+      
+      const sessionsData = response.data.sessions || response.data;
+      setSessions(Array.isArray(sessionsData) ? sessionsData : []);
+    } catch (error: any) {
       console.error('Failed to fetch sessions:', error);
+      setError(error.response?.data?.error || 'Failed to load sessions');
+      setSessions([]);
     } finally {
-      // setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -134,8 +155,9 @@ export const SessionManagement: React.FC = () => {
         isActive: true,
       });
       fetchSessions();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save session:', error);
+      alert(error.response?.data?.error || 'Failed to save session');
     }
   };
 
@@ -144,18 +166,36 @@ export const SessionManagement: React.FC = () => {
       try {
         await api.delete(`/admin/sessions/${sessionId}`);
         fetchSessions();
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to delete session:', error);
+        alert(error.response?.data?.error || 'Failed to delete session');
       }
     }
   };
 
-  const upcomingSessions = sessions.filter(
-    (s) => new Date(s.scheduledAt) > new Date()
-  );
-  // const pastSessions = sessions.filter(
-  //   (s) => new Date(s.scheduledAt) <= new Date()
-  // );
+  // Filter sessions based on tab
+  const now = new Date();
+  const upcomingSessions = sessions.filter(s => new Date(s.scheduledAt) > now);
+  const pastSessions = sessions.filter(s => new Date(s.scheduledAt) <= now);
+  const displayedSessions = tabValue === 0 ? sessions : tabValue === 1 ? upcomingSessions : pastSessions;
+
+  // Calculate stats
+  const totalBookings = sessions.reduce((sum, s) => sum + s.currentParticipants, 0);
+  const averageFillRate = sessions.length > 0
+    ? Math.round(
+        sessions.reduce((sum, s) => sum + (s.currentParticipants / s.maxParticipants) * 100, 0) /
+        sessions.length
+      )
+    : 0;
+  const eventCount = sessions.filter(s => s.type === 'EVENT').length;
+
+  if (loading) {
+    return (
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Typography>Loading sessions...</Typography>
+      </Container>
+    );
+  }
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -172,6 +212,12 @@ export const SessionManagement: React.FC = () => {
             Create Session
           </Button>
         </Stack>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
         {/* Stats */}
         <Grid container spacing={3} mb={4}>
@@ -239,123 +285,149 @@ export const SessionManagement: React.FC = () => {
         {/* Sessions Table */}
         <Card>
           <CardContent>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              All Sessions
-            </Typography>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Session</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Date & Time</TableCell>
-                    <TableCell>Duration</TableCell>
-                    <TableCell>Participants</TableCell>
-                    <TableCell>Points</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sessions.map((session) => (
-                    <TableRow key={session.id}>
-                      <TableCell>
-                        <Stack>
-                          <Typography variant="body2" fontWeight={500}>
-                            {session.title}
-                          </Typography>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            {session.type === 'SPEAKING' ? (
-                              <>
-                                <VideoCall sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                <Typography variant="caption" color="text.secondary">
-                                  Online
-                                </Typography>
-                              </>
-                            ) : session.location ? (
-                              <>
-                                <LocationOn sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                <Typography variant="caption" color="text.secondary">
-                                  {session.location}
-                                </Typography>
-                              </>
-                            ) : null}
-                          </Stack>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={session.type}
-                          size="small"
-                          color={session.type === 'SPEAKING' ? 'primary' : 'secondary'}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {new Date(session.scheduledAt).toLocaleString()}
-                      </TableCell>
-                      <TableCell>{session.duration} min</TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <People sx={{ fontSize: 16 }} />
-                          <Typography variant="body2">
-                            {session.currentParticipants}/{session.maxParticipants}
-                          </Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        {session.pointsRequired > 0 ? (
-                          <Stack direction="row" spacing={0.5} alignItems="center">
-                            <Star sx={{ fontSize: 16, color: 'warning.main' }} />
-                            <Typography variant="body2">{session.pointsRequired}</Typography>
-                          </Stack>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            Free
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={session.isActive ? 'Active' : 'Inactive'}
-                          size="small"
-                          color={session.isActive ? 'success' : 'default'}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setEditingSession(session);
-                            setSessionForm({
-                              title: session.title,
-                              description: session.description,
-                              type: session.type,
-                              meetingUrl: session.meetingUrl || '',
-                              location: session.location || '',
-                              scheduledAt: new Date(session.scheduledAt),
-                              duration: session.duration,
-                              maxParticipants: session.maxParticipants,
-                              pointsRequired: session.pointsRequired,
-                              isActive: session.isActive,
-                            });
-                            setSessionDialog(true);
-                          }}
-                        >
-                          <Edit />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteSession(session.id)}
-                        >
-                          <Delete />
-                        </IconButton>
-                      </TableCell>
+            <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 3 }}>
+              <Tab label={`All Sessions (${sessions.length})`} />
+              <Tab label={`Upcoming (${upcomingSessions.length})`} />
+              <Tab label={`Past (${pastSessions.length})`} />
+            </Tabs>
+
+            {displayedSessions.length === 0 ? (
+              <Alert severity="info">
+                No sessions found. Create your first session to get started!
+              </Alert>
+            ) : (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Session</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Date & Time</TableCell>
+                      <TableCell>Duration</TableCell>
+                      <TableCell>Participants</TableCell>
+                      <TableCell>Points</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell align="right">Actions</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {displayedSessions.map((session) => {
+                      const isPast = new Date(session.scheduledAt) < now;
+                      return (
+                        <TableRow key={session.id} sx={{ opacity: isPast ? 0.7 : 1 }}>
+                          <TableCell>
+                            <Stack>
+                              <Typography variant="body2" fontWeight={500}>
+                                {session.title}
+                              </Typography>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                {session.type === 'SPEAKING' ? (
+                                  <>
+                                    <VideoCall sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                    <Typography variant="caption" color="text.secondary">
+                                      Online
+                                    </Typography>
+                                  </>
+                                ) : session.location ? (
+                                  <>
+                                    <LocationOn sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {session.location}
+                                    </Typography>
+                                  </>
+                                ) : null}
+                              </Stack>
+                              {session.hostName && (
+                                <Typography variant="caption" color="text.secondary">
+                                  Host: {session.hostName}
+                                </Typography>
+                              )}
+                            </Stack>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={session.type}
+                              size="small"
+                              color={session.type === 'SPEAKING' ? 'primary' : 'secondary'}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {new Date(session.scheduledAt).toLocaleString()}
+                          </TableCell>
+                          <TableCell>{session.duration} min</TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <People sx={{ fontSize: 16 }} />
+                              <Typography variant="body2">
+                                {session.currentParticipants}/{session.maxParticipants}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>
+                            {session.pointsRequired > 0 ? (
+                              <Stack direction="row" spacing={0.5} alignItems="center">
+                                <Star sx={{ fontSize: 16, color: 'warning.main' }} />
+                                <Typography variant="body2">{session.pointsRequired}</Typography>
+                              </Stack>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                Free
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Stack spacing={0.5}>
+                              <Chip
+                                label={session.isActive ? 'Active' : 'Inactive'}
+                                size="small"
+                                color={session.isActive ? 'success' : 'default'}
+                              />
+                              {isPast && (
+                                <Chip
+                                  label="Ended"
+                                  size="small"
+                                  color="default"
+                                />
+                              )}
+                            </Stack>
+                          </TableCell>
+                          <TableCell align="right">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setEditingSession(session);
+                                setSessionForm({
+                                  title: session.title,
+                                  description: session.description,
+                                  type: session.type,
+                                  meetingUrl: session.meetingUrl || '',
+                                  location: session.location || '',
+                                  scheduledAt: new Date(session.scheduledAt),
+                                  duration: session.duration,
+                                  maxParticipants: session.maxParticipants,
+                                  pointsRequired: session.pointsRequired,
+                                  isActive: session.isActive,
+                                });
+                                setSessionDialog(true);
+                              }}
+                            >
+                              <Edit />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteSession(session.id)}
+                            >
+                              <Delete />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -371,6 +443,7 @@ export const SessionManagement: React.FC = () => {
                 label="Session Title"
                 value={sessionForm.title}
                 onChange={(e) => setSessionForm({ ...sessionForm, title: e.target.value })}
+                required
               />
               <TextField
                 fullWidth
@@ -379,6 +452,7 @@ export const SessionManagement: React.FC = () => {
                 label="Description"
                 value={sessionForm.description}
                 onChange={(e) => setSessionForm({ ...sessionForm, description: e.target.value })}
+                required
               />
               <FormControl fullWidth>
                 <InputLabel>Session Type</InputLabel>
@@ -429,7 +503,8 @@ export const SessionManagement: React.FC = () => {
                     type="number"
                     label="Duration (minutes)"
                     value={sessionForm.duration}
-                    onChange={(e) => setSessionForm({ ...sessionForm, duration: parseInt(e.target.value) })}
+                    onChange={(e) => setSessionForm({ ...sessionForm, duration: parseInt(e.target.value) || 30 })}
+                    inputProps={{ min: 15, max: 180 }}
                   />
                 </Grid>
                 <Grid size={{ xs: 6}}>
@@ -438,7 +513,8 @@ export const SessionManagement: React.FC = () => {
                     type="number"
                     label="Max Participants"
                     value={sessionForm.maxParticipants}
-                    onChange={(e) => setSessionForm({ ...sessionForm, maxParticipants: parseInt(e.target.value) })}
+                    onChange={(e) => setSessionForm({ ...sessionForm, maxParticipants: parseInt(e.target.value) || 1 })}
+                    inputProps={{ min: 1, max: 100 }}
                   />
                 </Grid>
               </Grid>
@@ -448,8 +524,9 @@ export const SessionManagement: React.FC = () => {
                 type="number"
                 label="Points Required"
                 value={sessionForm.pointsRequired}
-                onChange={(e) => setSessionForm({ ...sessionForm, pointsRequired: parseInt(e.target.value) })}
+                onChange={(e) => setSessionForm({ ...sessionForm, pointsRequired: parseInt(e.target.value) || 0 })}
                 helperText="Set to 0 for free sessions"
+                inputProps={{ min: 0 }}
               />
 
               <FormControlLabel
@@ -465,7 +542,11 @@ export const SessionManagement: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setSessionDialog(false)}>Cancel</Button>
-            <Button variant="contained" onClick={handleSaveSession}>
+            <Button 
+              variant="contained" 
+              onClick={handleSaveSession}
+              disabled={!sessionForm.title || !sessionForm.description}
+            >
               Save Session
             </Button>
           </DialogActions>

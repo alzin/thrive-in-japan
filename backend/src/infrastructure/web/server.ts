@@ -13,6 +13,7 @@ import { adminRouter } from './routes/admin.routes';
 import { profileRouter } from './routes/profile.routes';
 import { paymentRouter } from './routes/payment.routes';
 import { calendarRouter } from './routes/calendar.routes';
+import { sessionRouter } from './routes/session.routes';
 
 export class Server {
   private app: Application;
@@ -56,6 +57,7 @@ export class Server {
     this.app.use('/api/payment', paymentRouter);
     this.app.use('/api/admin', adminRouter);
     this.app.use('/api/calendar', calendarRouter);
+    this.app.use('/api/sessions', sessionRouter);
     
     // Health check
     this.app.get('/health', (req, res) => {
