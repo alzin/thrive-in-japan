@@ -41,7 +41,7 @@ export class RegisterUserUseCase {
 
     // Create user
     const user = new User(
-      this.generateId(),
+      `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
       dto.email,
       hashedPassword,
       UserRole.STUDENT,
@@ -54,7 +54,7 @@ export class RegisterUserUseCase {
 
     // Create profile
     const profile = new Profile(
-      this.generateId(),
+      `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
       savedUser.id,
       dto.email.split('@')[0], // Default name from email
       '',
@@ -73,9 +73,5 @@ export class RegisterUserUseCase {
     await this.emailService.sendWelcomeEmail(dto.email, temporaryPassword);
 
     return { user: savedUser, temporaryPassword };
-  }
-
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 }

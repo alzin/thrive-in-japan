@@ -40,7 +40,7 @@ export class CreateBookingUseCase {
 
     // Create booking
     const booking: Booking = {
-      id: this.generateId(),
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
       userId: dto.userId,
       sessionId: dto.sessionId,
       status: 'CONFIRMED',
@@ -59,9 +59,5 @@ export class CreateBookingUseCase {
     }
 
     return savedBooking;
-  }
-
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 }

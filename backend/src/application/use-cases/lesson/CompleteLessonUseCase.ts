@@ -40,7 +40,7 @@ export class CompleteLessonUseCase {
       }
     } else {
       progress = new Progress(
-        this.generateId(),
+        `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
         dto.userId,
         dto.lessonId,
         lesson.courseId,
@@ -61,9 +61,5 @@ export class CompleteLessonUseCase {
     }
 
     return savedProgress;
-  }
-
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 }

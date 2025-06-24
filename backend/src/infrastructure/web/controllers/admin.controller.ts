@@ -131,7 +131,7 @@ export class AdminController {
       const courseRepository = new CourseRepository();
 
       const course = new Course(
-        this.generateId(),
+        `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
         title,
         description,
         type as CourseType,
@@ -196,7 +196,7 @@ export class AdminController {
       const lessonRepository = new LessonRepository();
 
       const lesson = new Lesson(
-        this.generateId(),
+        `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
         courseId,
         title,
         description,
@@ -263,7 +263,7 @@ export class AdminController {
       const sessionRepository = new SessionRepository();
 
       const session = new Session(
-        this.generateId(),
+        `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
         title,
         description,
         type as SessionType,
@@ -392,9 +392,5 @@ export class AdminController {
     } catch (error) {
       next(error);
     }
-  }
-
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 }

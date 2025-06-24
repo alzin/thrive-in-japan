@@ -28,7 +28,7 @@ export class CreatePostUseCase {
     }
 
     const post = new Post(
-      this.generateId(),
+      `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
       dto.userId,
       dto.content,
       dto.mediaUrls || [],
@@ -39,9 +39,5 @@ export class CreatePostUseCase {
     );
 
     return await this.postRepository.create(post);
-  }
-
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 }
