@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -17,6 +17,15 @@ import {
   Alert,
   IconButton,
   Badge,
+  CircularProgress,
+  Tooltip,
+  Snackbar,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Avatar,
+  Divider,
 } from '@mui/material';
 import {
   AccessTime,
@@ -26,226 +35,388 @@ import {
   Star,
   ChevronLeft,
   ChevronRight,
+  Today,
+  Event,
+  CheckCircle,
+  Cancel,
+  ContentCopy,
+  Refresh,
 } from '@mui/icons-material';
-import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
-
-interface Session {
-  id: string;
-  title: string;
-  type: 'SPEAKING' | 'EVENT';
-  hostName: string;
-  scheduledAt: Date;
-  duration: number;
-  maxParticipants: number;
-  currentParticipants: number;
-  pointsRequired: number;
-  meetingUrl?: string;
-  location?: string;
-  description: string;
-}
-
-const SessionCard = ({ session, onBook }: { session: Session; onBook: () => void }) => {
-  const isFull = session.currentParticipants >= session.maxParticipants;
-  
-  return (
-    <Card sx={{ mb: 2 }}>
-      <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="start" mb={2}>
-          <Box>
-            <Typography variant="h6" fontWeight={600}>
-              {session.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Hosted by {session.hostName}
-            </Typography>
-          </Box>
-          <Chip
-            label={session.type === 'SPEAKING' ? 'Speaking' : 'Event'}
-            color={session.type === 'SPEAKING' ? 'primary' : 'secondary'}
-            size="small"
-          />
-        </Stack>
-
-        <Stack spacing={1} mb={2}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <AccessTime fontSize="small" color="action" />
-            <Typography variant="body2">
-              {format(session.scheduledAt, 'MMM d, yyyy • h:mm a')} ({session.duration} min)
-            </Typography>
-          </Stack>
-          
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Group fontSize="small" color="action" />
-            <Typography variant="body2">
-              {session.currentParticipants}/{session.maxParticipants} participants
-            </Typography>
-          </Stack>
-
-          {session.pointsRequired > 0 && (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Star fontSize="small" color="action" />
-              <Typography variant="body2">
-                {session.pointsRequired} points required
-              </Typography>
-            </Stack>
-          )}
-
-          <Stack direction="row" spacing={1} alignItems="center">
-            {session.type === 'SPEAKING' ? (
-              <>
-                <VideoCall fontSize="small" color="action" />
-                <Typography variant="body2">Online (Google Meet)</Typography>
-              </>
-            ) : session.location ? (
-              <>
-                <LocationOn fontSize="small" color="action" />
-                <Typography variant="body2">{session.location}</Typography>
-              </>
-            ) : null}
-          </Stack>
-        </Stack>
-
-        <Button
-          fullWidth
-          variant="contained"
-          disabled={isFull}
-          onClick={onBook}
-        >
-          {isFull ? 'Session Full' : 'Book Session'}
-        </Button>
-      </CardContent>
-    </Card>
-  );
-};
+import { format, addDays, startOfWeek, isSameDay, addMonths, subMonths } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store/store';
+import { calendarService, CalendarSession, Booking, BookingEligibility } from '../services/calendarService';
 
 export const CalendarPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [bookingDialog, setBookingDialog] = useState<Session | null>(null);
-  const [myBookings] = useState<string[]>(['1', '3']);
+  const [sessions, setSessions] = useState<CalendarSession[]>([]);
+  const [myBookings, setMyBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [bookingDialog, setBookingDialog] = useState<CalendarSession | null>(null);
+  const [eligibility, setEligibility] = useState<BookingEligibility | null>(null);
+  const [attendeesDialog, setAttendeesDialog] = useState<CalendarSession | null>(null);
+  const [attendees, setAttendees] = useState<any[]>([]);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as any });
+  
+  const profile = useSelector((state: RootState) => state.profile.data);
+  const user = useSelector((state: RootState) => state.auth.user);
 
-  const sessions: Session[] = [
-    {
-      id: '1',
-      title: 'Casual Conversation Practice',
-      type: 'SPEAKING',
-      hostName: 'Yuki Tanaka',
-      scheduledAt: new Date(2024, 0, 25, 19, 0),
-      duration: 30,
-      maxParticipants: 8,
-      currentParticipants: 5,
-      pointsRequired: 0,
-      meetingUrl: 'https://meet.google.com/abc-defg-hij',
-      description: 'Practice everyday Japanese conversations in a relaxed environment.',
-    },
-    {
-      id: '2',
-      title: 'Business Japanese Workshop',
-      type: 'SPEAKING',
-      hostName: 'Kenji Sato',
-      scheduledAt: new Date(2024, 0, 26, 20, 0),
-      duration: 45,
-      maxParticipants: 6,
-      currentParticipants: 6,
-      pointsRequired: 50,
-      meetingUrl: 'https://meet.google.com/klm-nopq-rst',
-      description: 'Learn essential business Japanese phrases and etiquette.',
-    },
-    {
-      id: '3',
-      title: 'Tea Ceremony Experience',
-      type: 'EVENT',
-      hostName: 'Sakura Cultural Center',
-      scheduledAt: new Date(2024, 0, 27, 14, 0),
-      duration: 120,
-      maxParticipants: 12,
-      currentParticipants: 8,
-      pointsRequired: 100,
-      location: 'Tokyo, Shibuya',
-      description: 'Experience traditional Japanese tea ceremony with a certified instructor.',
-    },
-  ];
+  useEffect(() => {
+    fetchCalendarData();
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (bookingDialog) {
+      checkEligibility(bookingDialog.id);
+    }
+  }, [bookingDialog]);
+
+  const fetchCalendarData = async () => {
+    try {
+      setLoading(true);
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth() + 1;
+      
+      const [sessionsData, bookingsData] = await Promise.all([
+        calendarService.getCalendarSessions(year, month),
+        calendarService.getUpcomingBookings(),
+      ]);
+
+      setSessions(sessionsData.sessions);
+      setMyBookings(bookingsData);
+    } catch (error) {
+      console.error('Failed to fetch calendar data:', error);
+      showSnackbar('Failed to load calendar data', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkEligibility = async (sessionId: string) => {
+    try {
+      const data = await calendarService.checkBookingEligibility(sessionId);
+      setEligibility(data);
+    } catch (error) {
+      console.error('Failed to check eligibility:', error);
+    }
+  };
+
+  const handleBookSession = async () => {
+    if (!bookingDialog || !eligibility?.canBook) return;
+
+    try {
+      await calendarService.createBooking(bookingDialog.id);
+      showSnackbar('Session booked successfully!', 'success');
+      setBookingDialog(null);
+      fetchCalendarData();
+    } catch (error) {
+      showSnackbar('Failed to book session', 'error');
+    }
+  };
+
+  const handleCancelBooking = async (booking: Booking) => {
+    if (window.confirm('Are you sure you want to cancel this booking?')) {
+      try {
+        await calendarService.cancelBooking(booking.id);
+        showSnackbar('Booking cancelled successfully', 'success');
+        fetchCalendarData();
+      } catch (error) {
+        showSnackbar('Failed to cancel booking', 'error');
+      }
+    }
+  };
+
+  const fetchAttendees = async (session: CalendarSession) => {
+    try {
+      const data = await calendarService.getSessionAttendees(session.id);
+      setAttendees(data);
+      setAttendeesDialog(session);
+    } catch (error) {
+      showSnackbar('Failed to fetch attendees', 'error');
+    }
+  };
+
+  const showSnackbar = (message: string, severity: string) => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const copyMeetingLink = (url: string) => {
+    navigator.clipboard.writeText(url);
+    showSnackbar('Meeting link copied to clipboard', 'success');
+  };
 
   const weekStart = startOfWeek(selectedDate);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
+  const getSessionsForDay = (date: Date) => {
+    return sessions.filter(s => isSameDay(new Date(s.scheduledAt), date));
+  };
+
+  const SessionCard = ({ session, compact = false }: { session: CalendarSession; compact?: boolean }) => {
+    const isBooked = myBookings.some(b => b.sessionId === session.id);
+    const isPast = new Date(session.scheduledAt) < new Date();
+    const isFull = session.currentParticipants >= session.maxParticipants;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+      >
+        <Card
+          sx={{
+            mb: 2,
+            opacity: isPast ? 0.7 : 1,
+            border: isBooked ? '2px solid' : '1px solid',
+            borderColor: isBooked ? 'primary.main' : 'divider',
+          }}
+        >
+          <CardContent sx={{ p: compact ? 2 : 3 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="start" mb={1}>
+              <Box flex={1}>
+                <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
+                  <Typography variant={compact ? 'body2' : 'h6'} fontWeight={600}>
+                    {session.title}
+                  </Typography>
+                  {isBooked && (
+                    <Chip
+                      icon={<CheckCircle />}
+                      label="Booked"
+                      size="small"
+                      color="primary"
+                    />
+                  )}
+                </Stack>
+                {session.hostName && (
+                  <Typography variant="body2" color="text.secondary">
+                    Hosted by {session.hostName}
+                  </Typography>
+                )}
+              </Box>
+              <Chip
+                label={session.type === 'SPEAKING' ? 'Speaking' : 'Event'}
+                color={session.type === 'SPEAKING' ? 'primary' : 'secondary'}
+                size="small"
+              />
+            </Stack>
+
+            <Stack spacing={compact ? 0.5 : 1} mb={2}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <AccessTime fontSize="small" color="action" />
+                <Typography variant="body2">
+                  {format(new Date(session.scheduledAt), compact ? 'h:mm a' : 'MMM d, yyyy • h:mm a')} ({session.duration} min)
+                </Typography>
+              </Stack>
+              
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Group fontSize="small" color="action" />
+                <Typography variant="body2">
+                  {session.currentParticipants}/{session.maxParticipants} participants
+                </Typography>
+                {(user?.role === 'ADMIN' || user?.role === 'INSTRUCTOR') && (
+                  <Button size="small" onClick={() => fetchAttendees(session)}>
+                    View List
+                  </Button>
+                )}
+              </Stack>
+
+              {session.pointsRequired > 0 && (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Star fontSize="small" color="action" />
+                  <Typography variant="body2">
+                    {session.pointsRequired} points required
+                  </Typography>
+                </Stack>
+              )}
+
+              <Stack direction="row" spacing={1} alignItems="center">
+                {session.type === 'SPEAKING' ? (
+                  <>
+                    <VideoCall fontSize="small" color="action" />
+                    <Typography variant="body2">Online (Google Meet)</Typography>
+                    {isBooked && session.meetingUrl && !isPast && (
+                      <Tooltip title="Copy meeting link">
+                        <IconButton
+                          size="small"
+                          onClick={() => copyMeetingLink(session.meetingUrl!)}
+                        >
+                          <ContentCopy fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </>
+                ) : session.location ? (
+                  <>
+                    <LocationOn fontSize="small" color="action" />
+                    <Typography variant="body2">{session.location}</Typography>
+                  </>
+                ) : null}
+              </Stack>
+            </Stack>
+
+            {!compact && (
+              <Stack direction="row" spacing={1}>
+                {isBooked ? (
+                  <>
+                    {!isPast && (
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        startIcon={<Cancel />}
+                        onClick={() => {
+                          const booking = myBookings.find(b => b.sessionId === session.id);
+                          if (booking) handleCancelBooking(booking);
+                        }}
+                      >
+                        Cancel Booking
+                      </Button>
+                    )}
+                    {session.meetingUrl && !isPast && (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        href={session.meetingUrl}
+                        target="_blank"
+                        startIcon={<VideoCall />}
+                      >
+                        Join Session
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    disabled={isPast || isFull || myBookings.length >= 2}
+                    onClick={() => setBookingDialog(session)}
+                  >
+                    {isPast ? 'Session Ended' : isFull ? 'Session Full' : 'Book Session'}
+                  </Button>
+                )}
+              </Stack>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  };
+
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h3" gutterBottom fontWeight={700}>
-        Calendar & Sessions
-      </Typography>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
+        <Typography variant="h3" fontWeight={700}>
+          Calendar & Sessions
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button
+            startIcon={<Today />}
+            onClick={() => setSelectedDate(new Date())}
+          >
+            Today
+          </Button>
+          <Tooltip title="Refresh">
+            <IconButton onClick={fetchCalendarData} color="primary">
+              <Refresh />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </Stack>
 
       <Grid container spacing={4}>
         {/* Calendar */}
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card>
             <CardContent>
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-                <IconButton onClick={() => setSelectedDate(addDays(selectedDate, -7))}>
+                <IconButton onClick={() => setSelectedDate(subMonths(selectedDate, 1))}>
                   <ChevronLeft />
                 </IconButton>
                 <Typography variant="h6" fontWeight={600}>
                   {format(selectedDate, 'MMMM yyyy')}
                 </Typography>
-                <IconButton onClick={() => setSelectedDate(addDays(selectedDate, 7))}>
+                <IconButton onClick={() => setSelectedDate(addMonths(selectedDate, 1))}>
                   <ChevronRight />
                 </IconButton>
               </Stack>
 
               <Grid container spacing={1}>
-                {weekDays.map((day) => (
-                  <Grid key={day.toISOString()} size={{ xs: 12 }}>
-                    <Paper
-                      sx={{
-                        p: 2,
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        bgcolor: isSameDay(day, selectedDate) ? 'primary.main' : 'background.paper',
-                        color: isSameDay(day, selectedDate) ? 'white' : 'text.primary',
-                        '&:hover': {
-                          bgcolor: isSameDay(day, selectedDate) ? 'primary.dark' : 'action.hover',
-                        },
-                      }}
-                      onClick={() => setSelectedDate(day)}
-                    >
-                      <Typography variant="caption" display="block">
-                        {format(day, 'EEE')}
-                      </Typography>
-                      <Typography variant="h6" fontWeight={600}>
-                        {format(day, 'd')}
-                      </Typography>
-                      <Badge
-                        badgeContent={
-                          sessions.filter(s => isSameDay(s.scheduledAt, day)).length
-                        }
-                        color="error"
-                        sx={{ mt: 1 }}
+                {weekDays.map((day) => {
+                  const daySessions = getSessionsForDay(day);
+                  const hasBooking = daySessions.some(s => 
+                    myBookings.some(b => b.sessionId === s.id)
+                  );
+                  
+                  return (
+                    <Grid size={{ xs: 12, sm:6, md: 3 }} key={day.toISOString()}>
+                      <Paper
+                        sx={{
+                          p: 2,
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          bgcolor: isSameDay(day, selectedDate) ? 'primary.main' : 'background.paper',
+                          color: isSameDay(day, selectedDate) ? 'white' : 'text.primary',
+                          border: hasBooking ? '2px solid' : '1px solid',
+                          borderColor: hasBooking ? 'primary.main' : 'divider',
+                          '&:hover': {
+                            bgcolor: isSameDay(day, selectedDate) ? 'primary.dark' : 'action.hover',
+                          },
+                        }}
+                        onClick={() => setSelectedDate(day)}
                       >
-                        <Box sx={{ width: 8, height: 8 }} />
-                      </Badge>
-                    </Paper>
-                  </Grid>
-                ))}
+                        <Typography variant="caption" display="block">
+                          {format(day, 'EEE')}
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600}>
+                          {format(day, 'd')}
+                        </Typography>
+                        <Badge
+                          badgeContent={daySessions.length}
+                          color="error"
+                          sx={{ mt: 1 }}
+                        >
+                          <Box sx={{ width: 8, height: 8 }} />
+                        </Badge>
+                      </Paper>
+                    </Grid>
+                  );
+                })}
               </Grid>
 
-              <Box sx={{ mt: 4 }}>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Upcoming Sessions
-                </Typography>
-                {sessions.map((session) => (
-                  <SessionCard
-                    key={session.id}
-                    session={session}
-                    onBook={() => setBookingDialog(session)}
-                  />
-                ))}
-              </Box>
+              <Divider sx={{ my: 3 }} />
+
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                Sessions on {format(selectedDate, 'MMMM d, yyyy')}
+              </Typography>
+              
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <AnimatePresence>
+                  {getSessionsForDay(selectedDate).length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
+                      No sessions scheduled for this day
+                    </Typography>
+                  ) : (
+                    getSessionsForDay(selectedDate).map((session) => (
+                      <SessionCard key={session.id} session={session} />
+                    ))
+                  )}
+                </AnimatePresence>
+              )}
             </CardContent>
           </Card>
         </Grid>
 
-        {/* My Bookings */}
+        {/* Sidebar */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
+
+          {/* My Bookings */}
+          <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" fontWeight={600} gutterBottom>
                 My Bookings
@@ -255,27 +426,48 @@ export const CalendarPage: React.FC = () => {
                 You can book up to 2 sessions at a time
               </Alert>
 
-              <Stack spacing={2}>
-                {sessions
-                  .filter(s => myBookings.includes(s.id))
-                  .map((session) => (
-                    <Paper key={session.id} sx={{ p: 2 }}>
+              {myBookings.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
+                  No active bookings
+                </Typography>
+              ) : (
+                <Stack spacing={2}>
+                  {myBookings.map((booking) => (
+                    <Paper key={booking.id} sx={{ p: 2 }}>
                       <Typography variant="subtitle2" fontWeight={600}>
-                        {session.title}
+                        {booking.session?.title}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {format(session.scheduledAt, 'MMM d • h:mm a')}
+                        {booking.session && format(new Date(booking.session.scheduledAt), 'MMM d • h:mm a')}
                       </Typography>
-                      <Button size="small" color="error" sx={{ mt: 1 }}>
-                        Cancel Booking
+                      {booking.session?.meetingUrl && (
+                        <Button
+                          size="small"
+                          startIcon={<VideoCall />}
+                          href={booking.session.meetingUrl}
+                          target="_blank"
+                          sx={{ mt: 1 }}
+                        >
+                          Join
+                        </Button>
+                      )}
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => handleCancelBooking(booking)}
+                        sx={{ mt: 1, ml: 1 }}
+                      >
+                        Cancel
                       </Button>
                     </Paper>
                   ))}
-              </Stack>
+                </Stack>
+              )}
             </CardContent>
           </Card>
 
-          <Card sx={{ mt: 3 }}>
+          {/* Points Balance */}
+          <Card>
             <CardContent>
               <Typography variant="h6" fontWeight={600} gutterBottom>
                 Points Balance
@@ -283,15 +475,17 @@ export const CalendarPage: React.FC = () => {
               <Stack spacing={2}>
                 <Box>
                   <Typography variant="h3" fontWeight={700} color="primary">
-                    250
+                    {profile?.points || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Available Points
                   </Typography>
                 </Box>
-                <Button variant="outlined" fullWidth>
-                  How to Earn Points
-                </Button>
+                <Alert severity="info">
+                  <Typography variant="body2">
+                    Earn points by completing lessons and participating in the community!
+                  </Typography>
+                </Alert>
               </Stack>
             </CardContent>
           </Card>
@@ -302,36 +496,114 @@ export const CalendarPage: React.FC = () => {
       <Dialog open={!!bookingDialog} onClose={() => setBookingDialog(null)} maxWidth="sm" fullWidth>
         <DialogTitle>{bookingDialog?.title}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" paragraph>
-            {bookingDialog?.description}
-          </Typography>
-          <Stack spacing={1}>
-            <Typography variant="body2">
-              <strong>Host:</strong> {bookingDialog?.hostName}
+          <Stack spacing={2}>
+            <Typography variant="body2" paragraph>
+              {bookingDialog?.description}
             </Typography>
-            <Typography variant="body2">
-              <strong>Date:</strong> {bookingDialog && format(bookingDialog.scheduledAt, 'MMMM d, yyyy')}
-            </Typography>
-            <Typography variant="body2">
-              <strong>Time:</strong> {bookingDialog && format(bookingDialog.scheduledAt, 'h:mm a')}
-            </Typography>
-            <Typography variant="body2">
-              <strong>Duration:</strong> {bookingDialog?.duration} minutes
-            </Typography>
-            {bookingDialog?.pointsRequired && bookingDialog.pointsRequired > 0 && (
+            
+            <Stack spacing={1}>
               <Typography variant="body2">
-                <strong>Points Required:</strong> {bookingDialog.pointsRequired}
+                <strong>Host:</strong> {bookingDialog?.hostName}
               </Typography>
+              <Typography variant="body2">
+                <strong>Date:</strong> {bookingDialog && format(new Date(bookingDialog.scheduledAt), 'MMMM d, yyyy')}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Time:</strong> {bookingDialog && format(new Date(bookingDialog.scheduledAt), 'h:mm a')}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Duration:</strong> {bookingDialog?.duration} minutes
+              </Typography>
+              {bookingDialog?.pointsRequired && bookingDialog.pointsRequired > 0 && (
+                <Typography variant="body2">
+                  <strong>Points Required:</strong> {bookingDialog.pointsRequired}
+                </Typography>
+              )}
+              <Typography variant="body2">
+                <strong>Available Spots:</strong> {eligibility?.session.spotsAvailable || 0}
+              </Typography>
+            </Stack>
+
+            {eligibility && !eligibility.canBook && (
+              <Alert severity="warning">
+                <Typography variant="body2" fontWeight={600} gutterBottom>
+                  Cannot book this session:
+                </Typography>
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                  {eligibility.reasons.map((reason, index) => (
+                    <li key={index}>
+                      <Typography variant="body2">{reason}</Typography>
+                    </li>
+                  ))}
+                </ul>
+              </Alert>
+            )}
+
+            {eligibility?.canBook && (
+              <Alert severity="success">
+                You're eligible to book this session!
+              </Alert>
             )}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setBookingDialog(null)}>Cancel</Button>
-          <Button variant="contained" onClick={() => setBookingDialog(null)}>
+          <Button
+            variant="contained"
+            onClick={handleBookSession}
+            disabled={!eligibility?.canBook}
+          >
             Confirm Booking
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Attendees Dialog */}
+      <Dialog open={!!attendeesDialog} onClose={() => setAttendeesDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Session Attendees - {attendeesDialog?.title}
+        </DialogTitle>
+        <DialogContent>
+          <List>
+            {attendees.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
+                No attendees yet
+              </Typography>
+            ) : (
+              attendees.map((attendee, index) => (
+                <React.Fragment key={attendee.bookingId}>
+                  <ListItem>
+                    <ListItemAvatar>
+                      <Avatar src={attendee.profilePhoto}>
+                        {attendee.name[0]}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={attendee.name}
+                      secondary={`Level ${attendee.level} • ${attendee.languageLevel}`}
+                    />
+                  </ListItem>
+                  {index < attendees.length - 1 && <Divider variant="inset" component="li" />}
+                </React.Fragment>
+              ))
+            )}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAttendeesDialog(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

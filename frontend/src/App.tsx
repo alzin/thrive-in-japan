@@ -25,6 +25,8 @@ import { Analytics } from './pages/admin/Analytics';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
 
+import { CalendarPage } from './pages/CalendarPage';
+
 function App() {
   return (
     <Provider store={store}>
@@ -137,6 +139,16 @@ function App() {
                   </Layout>
                 </ProtectedRoute>
               }
+            />
+            <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CalendarPage />
+                </Layout>
+              </ProtectedRoute>
+            }
             />
           </Routes>
         </Router>

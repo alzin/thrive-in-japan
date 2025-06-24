@@ -66,6 +66,33 @@ export class SessionRepository implements ISessionRepository {
     return this.findById(id);
   }
 
+  async findByMonth(year: number, month: number): Promise<Session[]> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+    
+    return this.findByDateRange(startDate, endDate);
+  }
+
+  async findByWeek(startOfWeek: Date): Promise<Session[]> {
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+    
+    return this.findByDateRange(startOfWeek, endOfWeek);
+  }
+
+  async countByDay(date: Date): Promise<number> {
+    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+    
+    return await this.repository.count({
+      where: {
+        scheduledAt: Between(startOfDay, endOfDay),
+        isActive: true,
+      },
+    });
+  }
+
   private toDomain(entity: SessionEntity): Session {
     return new Session(
       entity.id,

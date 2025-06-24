@@ -12,6 +12,7 @@ import { bookingRouter } from './routes/booking.routes';
 import { adminRouter } from './routes/admin.routes';
 import { profileRouter } from './routes/profile.routes';
 import { paymentRouter } from './routes/payment.routes';
+import { calendarRouter } from './routes/calendar.routes';
 
 export class Server {
   private app: Application;
@@ -54,6 +55,7 @@ export class Server {
     this.app.use('/api/bookings', bookingRouter);
     this.app.use('/api/payment', paymentRouter);
     this.app.use('/api/admin', adminRouter);
+    this.app.use('/api/calendar', calendarRouter);
     
     // Health check
     this.app.get('/health', (req, res) => {
