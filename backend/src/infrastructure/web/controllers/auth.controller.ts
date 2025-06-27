@@ -8,6 +8,7 @@ import { EmailService } from '../../services/EmailService';
 import { PasswordService } from '../../services/PasswordService';
 import { TokenService } from '../../services/TokenService';
 import { PaymentService } from '../../services/PaymentService';
+import { AuthenticationError } from '../../../domain/errors/AuthenticationError';
 
 export class AuthController {
   async register(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -29,8 +30,12 @@ export class AuthController {
         message: 'Registration successful. Check your email for login credentials.',
         userId: result.user.id
       });
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      if (error.message.includes('already exists')) {
+        res.status(409).json({ error: error.message });
+      } else {
+        next(error);
+      }
     }
   }
 
@@ -48,12 +53,15 @@ export class AuthController {
 
       res.json(result);
     } catch (error) {
-      next(error);
+      if (error instanceof AuthenticationError) {
+        res.status(error.statusCode).json({ error: error.message });
+      } else {
+        next(error);
+      }
     }
   }
 
   async logout(req: Request, res: Response): Promise<void> {
-    // Token-based auth doesn't require server-side logout
     res.json({ message: 'Logout successful' });
   }
 }

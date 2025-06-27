@@ -384,7 +384,7 @@ export const ProfilePage: React.FC = () => {
         <Card sx={{ mb: 4, overflow: 'visible' }}>
           <CardContent sx={{ p: { xs: 2, md: 4 } }}>
             <Grid container spacing={3} alignItems="flex-start">
-              <Grid item xs={12} md={3} sx={{ textAlign: { xs: 'center', md: 'left' } }}>
+              <Grid size={{ xs: 12, md: 3 }} sx={{ textAlign: { xs: 'center', md: 'left' } }}>
                 <Badge
                   overlap="circular"
                   anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
@@ -417,7 +417,7 @@ export const ProfilePage: React.FC = () => {
                 </Badge>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 {editing ? (
                   <Stack spacing={2}>
                     <TextField
@@ -474,7 +474,7 @@ export const ProfilePage: React.FC = () => {
                 )}
               </Grid>
 
-              <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                 <Stack spacing={2} alignItems={{ xs: 'center', md: 'flex-end' }}>
                   {editing ? (
                     <>
@@ -561,7 +561,7 @@ export const ProfilePage: React.FC = () => {
         {/* Stats Cards */}
         <Grid container spacing={3} mb={4}>
           {stats.map((stat, index) => (
-            <Grid item xs={6} md={3} key={index}>
+            <Grid size={{ xs: 6, md: 3 }} key={index}>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -622,7 +622,7 @@ export const ProfilePage: React.FC = () => {
                   exit={{ opacity: 0, x: 20 }}
                 >
                   <Grid container spacing={4}>
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Typography variant="h6" fontWeight={600} gutterBottom>
                         Learning Journey
                       </Typography>
@@ -672,7 +672,7 @@ export const ProfilePage: React.FC = () => {
                       </List>
                     </Grid>
 
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Typography variant="h6" fontWeight={600} gutterBottom>
                         Skills Overview
                       </Typography>
@@ -745,7 +745,7 @@ export const ProfilePage: React.FC = () => {
 
                     <Grid container spacing={3}>
                       {achievements.map((achievement) => (
-                        <Grid item xs={12} sm={6} md={4} key={achievement.id}>
+                       <Grid size={{ xs: 12, sm: 6, md: 4 }} key={achievement.id}>
                           <AchievementCard achievement={achievement} />
                         </Grid>
                       ))}
@@ -821,7 +821,7 @@ export const ProfilePage: React.FC = () => {
                       <Paper sx={{ p: 3 }}>
                         <Grid container spacing={2}>
                           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => (
-                            <Grid item key={day}>
+                            <Grid size="auto" key={day}>
                               <Stack alignItems="center" spacing={1}>
                                 <Box
                                   sx={{

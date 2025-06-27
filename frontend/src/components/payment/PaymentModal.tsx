@@ -70,7 +70,18 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onClose }) => {
         onSuccess(result.paymentIntent.id);
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'An error occurred');
+      // Properly extract error message
+      const errorMessage = err.response?.data?.error?.message || 
+                          err.response?.data?.error || 
+                          err.message || 
+                          'An error occurred';
+      
+      // Special handling for "User already exists" error
+      if (errorMessage.includes('User already exists')) {
+        setError('This email is already registered. Please login instead or use a different email.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

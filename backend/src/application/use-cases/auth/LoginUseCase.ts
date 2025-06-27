@@ -1,6 +1,7 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { IPasswordService } from '../../services/IPasswordService';
 import { ITokenService } from '../../services/ITokenService';
+import { AuthenticationError } from '../../../domain/errors/AuthenticationError';
 
 export interface LoginDTO {
   email: string;
@@ -26,16 +27,16 @@ export class LoginUseCase {
   async execute(dto: LoginDTO): Promise<LoginResponse> {
     const user = await this.userRepository.findByEmail(dto.email);
     if (!user) {
-      throw new Error('Invalid credentials');
+      throw new AuthenticationError('Invalid credentials');
     }
 
     const isPasswordValid = await this.passwordService.compare(dto.password, user.password);
     if (!isPasswordValid) {
-      throw new Error('Invalid credentials');
+      throw new AuthenticationError('Invalid credentials');
     }
 
     if (!user.isActive) {
-      throw new Error('Account is inactive');
+      throw new AuthenticationError('Account is inactive', 403);
     }
 
     const token = this.tokenService.generateToken({
