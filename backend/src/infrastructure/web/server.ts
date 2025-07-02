@@ -14,6 +14,7 @@ import { profileRouter } from './routes/profile.routes';
 import { paymentRouter } from './routes/payment.routes';
 import { calendarRouter } from './routes/calendar.routes';
 import { sessionRouter } from './routes/session.routes';
+import { setupSwagger } from './swagger/swagger.setup';
 
 export class Server {
   private app: Application;
@@ -24,6 +25,7 @@ export class Server {
     this.port = port;
     this.configureMiddleware();
     this.configureRoutes();
+    this.configureSwagger();
     this.configureErrorHandling();
   }
 
@@ -35,10 +37,10 @@ export class Server {
     }));
     this.app.use(compression());
     this.app.use(morgan('dev'));
-    
+
     // Raw body for Stripe webhooks
     this.app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
-    
+
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
   }
@@ -58,7 +60,7 @@ export class Server {
     this.app.use('/api/admin', adminRouter);
     this.app.use('/api/calendar', calendarRouter);
     this.app.use('/api/sessions', sessionRouter);
-    
+
     // Health check
     this.app.get('/health', (req, res) => {
       res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -69,9 +71,14 @@ export class Server {
     this.app.use(errorHandler);
   }
 
+  private configureSwagger(): void {
+    setupSwagger(this.app);
+  }
+
   public async start(): Promise<void> {
     this.app.listen(this.port, () => {
       console.log(`Server running on port ${this.port}`);
+      console.log(`API Documentation available at http://localhost:${this.port}/docs`);
     });
   }
 
