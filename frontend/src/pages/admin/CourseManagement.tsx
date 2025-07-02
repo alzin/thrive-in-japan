@@ -58,7 +58,8 @@ interface Lesson {
   title: string;
   description: string;
   order: number;
-  videoUrl?: string;
+  contentUrl?: string;
+  lessonType: 'VIDEO' | 'PDF';
   pointsReward: number;
   requiresReflection: boolean;
 }
@@ -71,20 +72,20 @@ export const CourseManagement: React.FC = () => {
   const [lessonDialog, setLessonDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
-  
+
   const [courseForm, setCourseForm] = useState<{
     title: string;
     description: string;
     type: 'JAPAN_IN_CONTEXT' | 'JLPT_IN_CONTEXT';
     icon: string;
     isActive: boolean;
-    }>({
+  }>({
     title: '',
     description: '',
     type: 'JAPAN_IN_CONTEXT',
     icon: '🏯',
     isActive: true,
-});
+  });
 
 
   const [lessonForm, setLessonForm] = useState({
@@ -120,6 +121,7 @@ export const CourseManagement: React.FC = () => {
     try {
       const response = await api.get(`/courses/${courseId}/lessons`);
       setLessons(response.data);
+      console.log("lessons", response.data)
     } catch (error) {
       console.error('Failed to fetch lessons:', error);
     }
@@ -221,7 +223,7 @@ export const CourseManagement: React.FC = () => {
         </Stack>
 
         <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 8 }}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Card>
               <CardContent>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
@@ -246,10 +248,14 @@ export const CourseManagement: React.FC = () => {
                           secondary={
                             <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
                               <Chip
-                                icon={<VideoLibrary />}
-                                label={lesson.videoUrl ? 'Has Video' : 'No Video'}
+                                icon={lesson.lessonType === 'VIDEO' ? <VideoLibrary /> : <PictureAsPdf />}
+                                label={
+                                  lesson.contentUrl
+                                    ? (lesson.lessonType === 'VIDEO' ? 'Has Video' : 'Has PDF')
+                                    : (lesson.lessonType === 'VIDEO' ? 'No Video' : 'No PDF')
+                                }
                                 size="small"
-                                color={lesson.videoUrl ? 'success' : 'default'}
+                                color={lesson.contentUrl ? 'success' : 'default'}
                               />
                               <Chip
                                 label={`${lesson.pointsReward} points`}
@@ -270,8 +276,8 @@ export const CourseManagement: React.FC = () => {
                                 title: lesson.title,
                                 description: lesson.description,
                                 order: lesson.order,
-                                lessonType: lesson.videoUrl ? 'VIDEO' : 'PDF',
-                                contentUrl: lesson.videoUrl || '',
+                                lessonType: lesson.lessonType || 'VIDEO',
+                                contentUrl: lesson.contentUrl || '',
                                 pointsReward: lesson.pointsReward,
                                 requiresReflection: lesson.requiresReflection,
                               });
@@ -294,7 +300,7 @@ export const CourseManagement: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          
+
           <Grid size={{ xs: 12, md: 4 }}>
             <Card>
               <CardContent>
@@ -362,7 +368,7 @@ export const CourseManagement: React.FC = () => {
                 value={lessonForm.order}
                 onChange={(e) => setLessonForm({ ...lessonForm, order: parseInt(e.target.value) })}
               />
-              
+
               <FormControl>
                 <FormLabel>Lesson Type</FormLabel>
                 <RadioGroup
@@ -370,25 +376,25 @@ export const CourseManagement: React.FC = () => {
                   value={lessonForm.lessonType}
                   onChange={(e) => setLessonForm({ ...lessonForm, lessonType: e.target.value as 'VIDEO' | 'PDF' })}
                 >
-                  <FormControlLabel 
-                    value="VIDEO" 
-                    control={<Radio />} 
+                  <FormControlLabel
+                    value="VIDEO"
+                    control={<Radio />}
                     label={
                       <Stack direction="row" spacing={1} alignItems="center">
                         <VideoIcon />
                         <Typography>Video Lesson</Typography>
                       </Stack>
-                    } 
+                    }
                   />
-                  <FormControlLabel 
-                    value="PDF" 
-                    control={<Radio />} 
+                  <FormControlLabel
+                    value="PDF"
+                    control={<Radio />}
                     label={
                       <Stack direction="row" spacing={1} alignItems="center">
                         <PictureAsPdf />
                         <Typography>PDF Resource</Typography>
                       </Stack>
-                    } 
+                    }
                   />
                 </RadioGroup>
               </FormControl>
@@ -400,7 +406,7 @@ export const CourseManagement: React.FC = () => {
                 onChange={(e) => setLessonForm({ ...lessonForm, contentUrl: e.target.value })}
                 helperText={`Enter the S3 URL for the ${lessonForm.lessonType.toLowerCase()}`}
               />
-              
+
               <TextField
                 fullWidth
                 type="number"
@@ -447,17 +453,15 @@ export const CourseManagement: React.FC = () => {
 
       <Grid container spacing={3}>
         {courses.map((course) => (
-        <Grid size={{ xs: 12, md: 4 }} key={course.id}>
+          <Grid size={{ xs: 12, md: 4 }} key={course.id}>
             <motion.div whileHover={{ y: -4 }}>
               <Card>
                 <Box
                   sx={{
                     height: 120,
-                    background: `linear-gradient(135deg, ${
-                      course.type === 'JAPAN_IN_CONTEXT' ? '#FF6B6B' : '#4ECDC4'
-                    } 0%, ${
-                      course.type === 'JAPAN_IN_CONTEXT' ? '#FFB7C5' : '#7ED4D0'
-                    } 100%)`,
+                    background: `linear-gradient(135deg, ${course.type === 'JAPAN_IN_CONTEXT' ? '#FF6B6B' : '#4ECDC4'
+                      } 0%, ${course.type === 'JAPAN_IN_CONTEXT' ? '#FFB7C5' : '#7ED4D0'
+                      } 100%)`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
