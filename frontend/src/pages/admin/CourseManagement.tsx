@@ -27,6 +27,9 @@ import {
   Paper,
   Switch,
   FormControlLabel,
+  FormLabel,
+  RadioGroup,
+  Radio,
 } from '@mui/material';
 import {
   Add,
@@ -35,6 +38,7 @@ import {
   VideoLibrary,
   DragIndicator,
 } from '@mui/icons-material';
+import { PictureAsPdf, VideoLibrary as VideoIcon } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
 
@@ -87,7 +91,8 @@ export const CourseManagement: React.FC = () => {
     title: '',
     description: '',
     order: 1,
-    videoUrl: '',
+    lessonType: 'VIDEO' as 'VIDEO' | 'PDF',
+    contentUrl: '',
     pointsReward: 10,
     requiresReflection: false,
   });
@@ -155,7 +160,8 @@ export const CourseManagement: React.FC = () => {
         title: '',
         description: '',
         order: lessons.length + 1,
-        videoUrl: '',
+        lessonType: 'VIDEO',
+        contentUrl: '',
         pointsReward: 10,
         requiresReflection: false,
       });
@@ -264,7 +270,8 @@ export const CourseManagement: React.FC = () => {
                                 title: lesson.title,
                                 description: lesson.description,
                                 order: lesson.order,
-                                videoUrl: lesson.videoUrl || '',
+                                lessonType: lesson.videoUrl ? 'VIDEO' : 'PDF',
+                                contentUrl: lesson.videoUrl || '',
                                 pointsReward: lesson.pointsReward,
                                 requiresReflection: lesson.requiresReflection,
                               });
@@ -355,13 +362,45 @@ export const CourseManagement: React.FC = () => {
                 value={lessonForm.order}
                 onChange={(e) => setLessonForm({ ...lessonForm, order: parseInt(e.target.value) })}
               />
+              
+              <FormControl>
+                <FormLabel>Lesson Type</FormLabel>
+                <RadioGroup
+                  row
+                  value={lessonForm.lessonType}
+                  onChange={(e) => setLessonForm({ ...lessonForm, lessonType: e.target.value as 'VIDEO' | 'PDF' })}
+                >
+                  <FormControlLabel 
+                    value="VIDEO" 
+                    control={<Radio />} 
+                    label={
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <VideoIcon />
+                        <Typography>Video Lesson</Typography>
+                      </Stack>
+                    } 
+                  />
+                  <FormControlLabel 
+                    value="PDF" 
+                    control={<Radio />} 
+                    label={
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <PictureAsPdf />
+                        <Typography>PDF Resource</Typography>
+                      </Stack>
+                    } 
+                  />
+                </RadioGroup>
+              </FormControl>
+
               <TextField
                 fullWidth
-                label="Video URL"
-                value={lessonForm.videoUrl}
-                onChange={(e) => setLessonForm({ ...lessonForm, videoUrl: e.target.value })}
-                helperText="Vimeo or YouTube URL"
+                label={lessonForm.lessonType === 'VIDEO' ? 'Video URL (S3)' : 'PDF URL (S3)'}
+                value={lessonForm.contentUrl}
+                onChange={(e) => setLessonForm({ ...lessonForm, contentUrl: e.target.value })}
+                helperText={`Enter the S3 URL for the ${lessonForm.lessonType.toLowerCase()}`}
               />
+              
               <TextField
                 fullWidth
                 type="number"

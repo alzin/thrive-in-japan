@@ -1,5 +1,7 @@
+// backend/src/infrastructure/database/entities/Lesson.entity.ts
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { CourseEntity } from './Course.entity';
+import { LessonType } from '../../../domain/entities/Lesson';
 
 @Entity('lessons')
 export class LessonEntity {
@@ -25,8 +27,15 @@ export class LessonEntity {
   @Column()
   order!: number;
 
+  @Column({
+    type: 'enum',
+    enum: LessonType,
+    default: LessonType.VIDEO
+  })
+  lessonType!: LessonType;
+
   @Column({ type: 'varchar', nullable: true })
-  videoUrl!: string | null;
+  contentUrl!: string | null;
 
   @Column({ type: 'text' })
   audioFiles!: string;

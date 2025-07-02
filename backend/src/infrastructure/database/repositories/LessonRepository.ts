@@ -53,7 +53,8 @@ export class LessonRepository implements ILessonRepository {
       entity.title,
       entity.description,
       entity.order,
-      entity.videoUrl ?? '',
+      entity.lessonType,
+      entity.contentUrl ?? undefined,
       entity.audioFiles.split(',').filter(f => f),
       entity.resources.split(',').filter(r => r),
       entity.requiresReflection,
@@ -63,20 +64,28 @@ export class LessonRepository implements ILessonRepository {
     );
   }
 
-  private toEntity(lesson: Lesson): LessonEntity {
-    const entity = new LessonEntity();
-    entity.id = lesson.id;
-    entity.courseId = lesson.courseId;
-    entity.title = lesson.title;
-    entity.description = lesson.description;
-    entity.order = lesson.order;
-    entity.videoUrl = lesson.videoUrl || null;
-    entity.audioFiles = lesson.audioFiles.join(',');
-    entity.resources = lesson.resources.join(',');
-    entity.requiresReflection = lesson.requiresReflection;
-    entity.pointsReward = lesson.pointsReward;
-    entity.createdAt = lesson.createdAt;
-    entity.updatedAt = lesson.updatedAt;
-    return entity;
-  }
+private toEntity(lesson: Lesson): LessonEntity {
+  const entity = new LessonEntity();
+  entity.id = lesson.id;
+  entity.courseId = lesson.courseId;
+  entity.title = lesson.title;
+  entity.description = lesson.description;
+  entity.order = lesson.order;
+  entity.lessonType = lesson.lessonType;
+  entity.contentUrl = lesson.contentUrl || null;
+  
+  // Handle audioFiles - ensure it's an array before joining
+  entity.audioFiles = Array.isArray(lesson.audioFiles) 
+    ? lesson.audioFiles.join(',') 
+    : '';
+    
+  // Handle resources - ensure it's an array before joining  
+  entity.resources = Array.isArray(lesson.resources) 
+    ? lesson.resources.join(',') 
+    : '';
+    
+  entity.requiresReflection = lesson.requiresReflection;
+  entity.pointsReward = lesson.pointsReward;
+  return entity;
+}
 }

@@ -9,8 +9,8 @@ import { SessionRepository } from '../../database/repositories/SessionRepository
 import { ManagePointsUseCase } from '../../../application/use-cases/admin/ManagePointsUseCase';
 import { CreatePostUseCase } from '../../../application/use-cases/community/CreatePostUseCase';
 import { Course, CourseType } from '../../../domain/entities/Course';
-import { Lesson } from '../../../domain/entities/Lesson';
 import { Session, SessionType } from '../../../domain/entities/Session';
+import { Lesson, LessonType } from '../../../domain/entities/Lesson';
 
 export class AdminController {
   async getUsers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -191,7 +191,17 @@ export class AdminController {
   async createLesson(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { courseId } = req.params;
-      const { title, description, order, videoUrl, audioFiles, resources, requiresReflection, pointsReward } = req.body;
+      const { 
+        title, 
+        description, 
+        order, 
+        lessonType, 
+        contentUrl,
+        audioFiles, 
+        resources, 
+        requiresReflection, 
+        pointsReward 
+      } = req.body;
       
       const lessonRepository = new LessonRepository();
 
@@ -201,7 +211,8 @@ export class AdminController {
         title,
         description,
         order,
-        videoUrl,
+        lessonType || LessonType.VIDEO, // Use the enum directly
+        contentUrl,
         audioFiles || [],
         resources || [],
         requiresReflection || false,
@@ -213,6 +224,7 @@ export class AdminController {
       const saved = await lessonRepository.create(lesson);
       res.status(201).json(saved);
     } catch (error) {
+      console.error('Error in createLesson:', error); // Debug log
       next(error);
     }
   }

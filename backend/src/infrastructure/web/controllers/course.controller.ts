@@ -5,6 +5,10 @@ import { LessonRepository } from '../../database/repositories/LessonRepository';
 import { ProgressRepository } from '../../database/repositories/ProgressRepository';
 import { CompleteLessonUseCase } from '../../../application/use-cases/lesson/CompleteLessonUseCase';
 import { ProfileRepository } from '../../database/repositories/ProfileRepository';
+import { EnrollInCourseUseCase } from '../../../application/use-cases/course/EnrollInCourseUseCase';
+import { EnrollmentRepository } from '../../database/repositories/EnrollmentRepository';
+import { UserRepository } from '../../database/repositories/UserRepository';
+
 
 export class CourseController {
   async getAllCourses(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -61,7 +65,12 @@ export class CourseController {
   async completeLesson(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { lessonId } = req.params;
-      const { reflectionContent } = req.body;
+
+      // Safely handle undefined req.body
+      let reflectionContent = undefined;
+      if (req.body && typeof req.body === 'object') {
+        reflectionContent = req.body.reflectionContent;
+      }
 
       const completeLessonUseCase = new CompleteLessonUseCase(
         new LessonRepository(),
@@ -76,6 +85,71 @@ export class CourseController {
       });
 
       res.json({ message: 'Lesson completed successfully', progress });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async enrollInCourse(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { courseId } = req.params;
+      
+      const enrollmentRepository = new EnrollmentRepository();
+      const enrollInCourseUseCase = new EnrollInCourseUseCase(
+        new CourseRepository(),
+        enrollmentRepository,
+        new UserRepository()
+      );
+
+      const enrollment = await enrollInCourseUseCase.execute({
+        userId: req.user!.userId,
+        courseId
+      });
+
+      res.status(201).json({ 
+        message: 'Successfully enrolled in course',
+        enrollment 
+      });
+    } catch (error: any) {
+      if (error.message.includes('Already enrolled')) {
+        res.status(409).json({ error: error.message });
+      } else {
+        next(error);
+      }
+    }
+  }
+
+  async getMyEnrollments(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const enrollmentRepository = new EnrollmentRepository();
+      const enrollments = await enrollmentRepository.findByUserId(req.user!.userId);
+      
+      // Get course details for each enrollment
+      const courseRepository = new CourseRepository();
+      const enrollmentsWithCourses = await Promise.all(
+        enrollments.map(async (enrollment) => {
+          const course = await courseRepository.findById(enrollment.courseId);
+          return { ...enrollment, course };
+        })
+      );
+
+      res.json(enrollmentsWithCourses);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async checkEnrollment(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { courseId } = req.params;
+      const enrollmentRepository = new EnrollmentRepository();
+      
+      const enrollment = await enrollmentRepository.findByUserAndCourse(
+        req.user!.userId,
+        courseId
+      );
+
+      res.json({ isEnrolled: !!enrollment });
     } catch (error) {
       next(error);
     }
