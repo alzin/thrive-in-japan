@@ -9,7 +9,10 @@ export class LessonEntity {
   @Column()
   courseId!: string;
 
-  @ManyToOne(() => CourseEntity, course => course.lessons)
+  @ManyToOne(() => CourseEntity, course => course.lessons, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
+  })
   @JoinColumn({ name: 'courseId' })
   course!: CourseEntity;
 
