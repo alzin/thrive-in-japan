@@ -1,5 +1,5 @@
 // frontend/src/pages/ClassroomPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Container,
@@ -76,13 +76,13 @@ interface Enrollment {
   course?: Course;
 }
 
-const CourseCard = ({ 
-  course, 
-  onClick, 
+const CourseCard = ({
+  course,
+  onClick,
   isEnrolled,
-  progress = 0 
-}: { 
-  course: Course; 
+  progress = 0
+}: {
+  course: Course;
   onClick: () => void;
   isEnrolled: boolean;
   progress?: number;
@@ -100,9 +100,8 @@ const CourseCard = ({
       <Box
         sx={{
           height: 200,
-          background: `linear-gradient(135deg, ${
-            course.type === 'JAPAN_IN_CONTEXT' ? '#FF6B6B' : '#4ECDC4'
-          } 0%, ${course.type === 'JAPAN_IN_CONTEXT' ? '#FFB7C5' : '#7ED4D0'} 100%)`,
+          background: `linear-gradient(135deg, ${course.type === 'JAPAN_IN_CONTEXT' ? '#FF6B6B' : '#4ECDC4'
+            } 0%, ${course.type === 'JAPAN_IN_CONTEXT' ? '#FFB7C5' : '#7ED4D0'} 100%)`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -167,8 +166,54 @@ const CourseCard = ({
   </motion.div>
 );
 
+
 const VideoPlayer = ({ url }: { url: string }) => {
-  // Simple video player - you might want to use a more sophisticated solution
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Disable right-click context menu
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // Disable keyboard shortcuts that might allow saving
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Disable Ctrl+S, Ctrl+A, F12, etc.
+      if (
+        (e.ctrlKey && (e.key === 's' || e.key === 'a')) ||
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+        (e.ctrlKey && e.shiftKey && e.key === 'C') ||
+        (e.ctrlKey && e.key === 'u')
+      ) {
+        e.preventDefault();
+        return false;
+      }
+    };
+
+    // Disable drag and drop
+    const handleDragStart = (e: DragEvent) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // Add event listeners
+    video.addEventListener('contextmenu', handleContextMenu);
+    video.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup
+    return () => {
+      video.removeEventListener('contextmenu', handleContextMenu);
+      video.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   return (
     <Box
       sx={{
@@ -177,22 +222,57 @@ const VideoPlayer = ({ url }: { url: string }) => {
         bgcolor: 'black',
         borderRadius: 2,
         overflow: 'hidden',
+        // Disable text selection
+        userSelect: 'none',
+        // Disable highlighting
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none',
       }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <video
+        ref={videoRef}
         controls
+        controlsList="nodownload noremoteplayback"
+        disablePictureInPicture
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
           height: '100%',
+          // Disable drag
+          pointerEvents: 'auto',
         }}
         src={url}
+        onLoadStart={() => {
+          // Additional protection: remove download attribute if somehow added
+          if (videoRef.current) {
+            videoRef.current.removeAttribute('download');
+          }
+        }}
+        // Disable right-click and drag
+        onContextMenu={(e) => e.preventDefault()}
+        onDragStart={(e) => e.preventDefault()}
+      />
+
+      {/* Invisible overlay to prevent direct video access */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          pointerEvents: 'none',
+          zIndex: 1,
+        }}
       />
     </Box>
   );
 };
+
 
 const PDFViewer = ({ url }: { url: string }) => {
   return (
@@ -263,11 +343,11 @@ export const ClassroomPage: React.FC = () => {
     try {
       setLessonLoading(true);
       const response = await api.get(`/courses/${courseId}/lessons`);
-      
+
       // Apply locking logic to lessons
       const lessonsWithLocks = calculateLessonLocks(response.data);
       setLessons(lessonsWithLocks);
-      
+
       // Auto-select first incomplete and unlocked lesson
       const firstIncompleteUnlocked = lessonsWithLocks.find(
         (l: Lesson) => !l.isCompleted && !l.isLocked
@@ -307,15 +387,15 @@ export const ClassroomPage: React.FC = () => {
 
     try {
       await api.post(`/courses/lessons/${selectedLesson.id}/complete`);
-      
+
       // Refresh lessons to get updated completion status and recalculate locks
       await fetchLessons(selectedCourse!.id);
-      
+
       // Move to next available lesson (unlocked and incomplete)
       const currentIndex = lessons.findIndex(l => l.id === selectedLesson.id);
       const nextLessons = lessons.slice(currentIndex + 1);
       const nextAvailableLesson = nextLessons.find(l => !l.isLocked);
-      
+
       if (nextAvailableLesson) {
         setSelectedLesson(nextAvailableLesson);
       }
@@ -331,30 +411,30 @@ export const ClassroomPage: React.FC = () => {
   const calculateProgress = (courseId: string) => {
     const courseLessons = lessons.filter(l => l.courseId === courseId);
     if (courseLessons.length === 0) return 0;
-    
+
     const completed = courseLessons.filter(l => l.isCompleted).length;
     return Math.round((completed / courseLessons.length) * 100);
   };
 
   const calculateLessonLocks = (lessons: Lesson[]): Lesson[] => {
-  if (!lessons.length) return lessons;
-  
-  // Sort lessons by order to ensure proper sequence
-  const sortedLessons = [...lessons].sort((a, b) => a.order - b.order);
-  
-  return sortedLessons.map((lesson, index) => {
-    // First lesson is never locked
-    if (index === 0) {
-      return { ...lesson, isLocked: false };
-    }
-    
-    // Check if previous lesson is completed
-    const previousLesson = sortedLessons[index - 1];
-    const isLocked = !previousLesson.isCompleted;
-    
-    return { ...lesson, isLocked };
-  });
-};
+    if (!lessons.length) return lessons;
+
+    // Sort lessons by order to ensure proper sequence
+    const sortedLessons = [...lessons].sort((a, b) => a.order - b.order);
+
+    return sortedLessons.map((lesson, index) => {
+      // First lesson is never locked
+      if (index === 0) {
+        return { ...lesson, isLocked: false };
+      }
+
+      // Check if previous lesson is completed
+      const previousLesson = sortedLessons[index - 1];
+      const isLocked = !previousLesson.isCompleted;
+
+      return { ...lesson, isLocked };
+    });
+  };
 
   const LessonSidebar = () => (
     <Box sx={{ p: 3 }}>
@@ -368,7 +448,7 @@ export const ClassroomPage: React.FC = () => {
           </IconButton>
         )}
       </Stack>
-      
+
       {lessonLoading ? (
         <Stack spacing={2}>
           {[1, 2, 3].map(i => (
@@ -379,7 +459,7 @@ export const ClassroomPage: React.FC = () => {
         <List>
           {lessons.map((lesson, index) => {
             const isDisabled = !isEnrolled(selectedCourse?.id || '') || lesson.isLocked;
-            
+
             return (
               <motion.div
                 key={lesson.id}
@@ -452,8 +532,8 @@ export const ClassroomPage: React.FC = () => {
                         </Stack>
                       }
                       secondary={
-                        lesson.isLocked 
-                          ? "Complete previous lesson to unlock" 
+                        lesson.isLocked
+                          ? "Complete previous lesson to unlock"
                           : lesson.lessonType
                       }
                       secondaryTypographyProps={{
@@ -497,13 +577,13 @@ export const ClassroomPage: React.FC = () => {
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
           Choose a course to begin your learning journey
         </Typography>
-        
+
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
-        
+
         <Grid container spacing={4}>
           {courses.map((course) => (
             <Grid size={{ xs: 12, md: 6 }} key={course.id}>
@@ -613,116 +693,116 @@ export const ClassroomPage: React.FC = () => {
               <MenuIcon />
             </IconButton>
           )}
-          
-        {selectedLesson ? (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={selectedLesson.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Typography variant="h4" gutterBottom fontWeight={600}>
-                {selectedLesson.title}
-              </Typography>
-              <Stack direction="row" spacing={2} alignItems="center" mb={3}>
-                <Chip
-                  icon={selectedLesson.lessonType === 'VIDEO' ? <VideoLibrary /> : <PictureAsPdf />}
-                  label={selectedLesson.lessonType === 'VIDEO' ? 'Video Lesson' : 'PDF Resource'}
-                />
-                {selectedLesson.pointsReward > 0 && (
-                  <Chip
-                    icon={<EmojiEvents />}
-                    label={`+${selectedLesson.pointsReward} points`}
-                    color="primary"
-                  />
-                )}
-                {selectedLesson.isLocked && (
-                  <Chip
-                    icon={<Lock />}
-                    label="Locked"
-                    color="error"
-                  />
-                )}
-              </Stack>
-              
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-                {selectedLesson.description}
-              </Typography>
-              
-              {/* Content Display */}
-              {selectedLesson.isLocked ? (
-                <Box sx={{ textAlign: 'center', py: 8 }}>
-                  <Lock sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    This lesson is locked
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    Complete the previous lesson to unlock this content
-                  </Typography>
-                </Box>
-              ) : !isEnrolled(selectedCourse.id) ? (
-                <Box sx={{ textAlign: 'center', py: 8 }}>
-                  <Lock sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    This content is locked
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    Enroll in this course to access all lessons
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    onClick={() => setEnrollDialog(selectedCourse)}
-                  >
-                    Enroll Now
-                  </Button>
-                </Box>
-              ) : (
-                // ... rest of your existing content display logic
-                <>
-                  {selectedLesson.contentUrl ? (
-                    selectedLesson.lessonType === 'VIDEO' ? (
-                      <VideoPlayer url={selectedLesson.contentUrl} />
-                    ) : (
-                      <PDFViewer url={selectedLesson.contentUrl} />
-                    )
-                  ) : (
-                    <Alert severity="warning" sx={{ mb: 4 }}>
-                      Content URL not available. Please contact support.
-                    </Alert>
-                  )}
 
-                  {/* Action buttons */}
-                  <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 4 }}>
-                    {selectedLesson.lessonType === 'PDF' && selectedLesson.contentUrl && (
-                      <Button
-                        variant="outlined"
-                        href={selectedLesson.contentUrl}
-                        download
-                        target="_blank"
-                      >
-                        Download PDF
-                      </Button>
-                    )}
+          {selectedLesson ? (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedLesson.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Typography variant="h4" gutterBottom fontWeight={600}>
+                  {selectedLesson.title}
+                </Typography>
+                <Stack direction="row" spacing={2} alignItems="center" mb={3}>
+                  <Chip
+                    icon={selectedLesson.lessonType === 'VIDEO' ? <VideoLibrary /> : <PictureAsPdf />}
+                    label={selectedLesson.lessonType === 'VIDEO' ? 'Video Lesson' : 'PDF Resource'}
+                  />
+                  {selectedLesson.pointsReward > 0 && (
+                    <Chip
+                      icon={<EmojiEvents />}
+                      label={`+${selectedLesson.pointsReward} points`}
+                      color="primary"
+                    />
+                  )}
+                  {selectedLesson.isLocked && (
+                    <Chip
+                      icon={<Lock />}
+                      label="Locked"
+                      color="error"
+                    />
+                  )}
+                </Stack>
+
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+                  {selectedLesson.description}
+                </Typography>
+
+                {/* Content Display */}
+                {selectedLesson.isLocked ? (
+                  <Box sx={{ textAlign: 'center', py: 8 }}>
+                    <Lock sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      This lesson is locked
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                      Complete the previous lesson to unlock this content
+                    </Typography>
+                  </Box>
+                ) : !isEnrolled(selectedCourse.id) ? (
+                  <Box sx={{ textAlign: 'center', py: 8 }}>
+                    <Lock sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      This content is locked
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                      Enroll in this course to access all lessons
+                    </Typography>
                     <Button
                       variant="contained"
-                      disabled={selectedLesson.isCompleted}
-                      onClick={handleCompleteLesson}
+                      onClick={() => setEnrollDialog(selectedCourse)}
                     >
-                      {selectedLesson.isCompleted ? 'Completed' : 'Mark as Complete'}
+                      Enroll Now
                     </Button>
-                  </Stack>
+                  </Box>
+                ) : (
+                  // ... rest of your existing content display logic
+                  <>
+                    {selectedLesson.contentUrl ? (
+                      selectedLesson.lessonType === 'VIDEO' ? (
+                        <VideoPlayer url={selectedLesson.contentUrl} />
+                      ) : (
+                        <PDFViewer url={selectedLesson.contentUrl} />
+                      )
+                    ) : (
+                      <Alert severity="warning" sx={{ mb: 4 }}>
+                        Content URL not available. Please contact support.
+                      </Alert>
+                    )}
 
-                  {selectedLesson.requiresReflection && !selectedLesson.isCompleted && (
-                    <Alert severity="info" sx={{ mt: 2 }}>
-                      This lesson requires a reflection. You'll be prompted to write one after marking it complete.
-                    </Alert>
-                  )}
-                </>
-              )}
-            </motion.div>
-          </AnimatePresence>
+                    {/* Action buttons */}
+                    <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 4 }}>
+                      {selectedLesson.lessonType === 'PDF' && selectedLesson.contentUrl && (
+                        <Button
+                          variant="outlined"
+                          href={selectedLesson.contentUrl}
+                          download
+                          target="_blank"
+                        >
+                          Download PDF
+                        </Button>
+                      )}
+                      <Button
+                        variant="contained"
+                        disabled={selectedLesson.isCompleted}
+                        onClick={handleCompleteLesson}
+                      >
+                        {selectedLesson.isCompleted ? 'Completed' : 'Mark as Complete'}
+                      </Button>
+                    </Stack>
+
+                    {selectedLesson.requiresReflection && !selectedLesson.isCompleted && (
+                      <Alert severity="info" sx={{ mt: 2 }}>
+                        This lesson requires a reflection. You'll be prompted to write one after marking it complete.
+                      </Alert>
+                    )}
+                  </>
+                )}
+              </motion.div>
+            </AnimatePresence>
           ) : (
             <Box sx={{ textAlign: 'center', py: 8 }}>
               <School sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
