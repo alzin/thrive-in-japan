@@ -15,5 +15,6 @@ router.get('/:courseId/enrollment-status', courseController.checkEnrollment);
 router.post('/:courseId/enroll', courseController.enrollInCourse);
 router.get('/:courseId/lessons', courseController.getCourseLessons);
 router.post('/lessons/:lessonId/complete', courseController.completeLesson);
+router.get('/lessons/:lessonId', courseController.getLessonById);
 
 export { router as courseRouter };

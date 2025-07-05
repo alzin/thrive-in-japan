@@ -6,11 +6,13 @@ import { PostRepository } from '../../database/repositories/PostRepository';
 import { CourseRepository } from '../../database/repositories/CourseRepository';
 import { LessonRepository } from '../../database/repositories/LessonRepository';
 import { SessionRepository } from '../../database/repositories/SessionRepository';
+import { KeywordRepository } from '../../database/repositories/KeywordRepository';
 import { ManagePointsUseCase } from '../../../application/use-cases/admin/ManagePointsUseCase';
 import { CreatePostUseCase } from '../../../application/use-cases/community/CreatePostUseCase';
 import { Course, CourseType } from '../../../domain/entities/Course';
 import { Session, SessionType } from '../../../domain/entities/Session';
 import { Lesson, LessonType } from '../../../domain/entities/Lesson';
+import { Keyword } from '../../../domain/entities/Keyword';
 
 export class AdminController {
   async getUsers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -200,10 +202,12 @@ export class AdminController {
         audioFiles, 
         resources, 
         requiresReflection, 
-        pointsReward 
+        pointsReward,
+        keywords 
       } = req.body;
       
       const lessonRepository = new LessonRepository();
+      const keywordRepository = new KeywordRepository();
 
       const lesson = new Lesson(
         `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
@@ -211,7 +215,7 @@ export class AdminController {
         title,
         description,
         order,
-        lessonType || LessonType.VIDEO, // Use the enum directly
+        lessonType || LessonType.VIDEO,
         contentUrl,
         audioFiles || [],
         resources || [],
@@ -221,10 +225,28 @@ export class AdminController {
         new Date()
       );
 
-      const saved = await lessonRepository.create(lesson);
-      res.status(201).json(saved);
+      const savedLesson = await lessonRepository.create(lesson);
+
+      // If lesson type is KEYWORDS and keywords are provided, save them
+      if (lessonType === LessonType.KEYWORDS && keywords && Array.isArray(keywords)) {
+        const keywordEntities = keywords.map((kw: any, index: number) => new Keyword(
+          `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
+          savedLesson.id,
+          kw.englishText,
+          kw.japaneseText,
+          kw.englishAudioUrl,
+          kw.japaneseAudioUrl,
+          index + 1,
+          new Date(),
+          new Date()
+        ));
+
+        await keywordRepository.createMany(keywordEntities);
+      }
+
+      res.status(201).json(savedLesson);
     } catch (error) {
-      console.error('Error in createLesson:', error); // Debug log
+      console.error('Error in createLesson:', error);
       next(error);
     }
   }
@@ -235,11 +257,39 @@ export class AdminController {
       const updates = req.body;
       
       const lessonRepository = new LessonRepository();
+      const keywordRepository = new KeywordRepository();
+      
       const lesson = await lessonRepository.findById(lessonId);
       
       if (!lesson) {
         res.status(404).json({ error: 'Lesson not found' });
         return;
+      }
+
+      // If updating a KEYWORDS lesson, handle keywords update
+      if (lesson.lessonType === LessonType.KEYWORDS && updates.keywords) {
+        // Delete existing keywords
+        await keywordRepository.deleteByLessonId(lessonId);
+        
+        // Create new keywords
+        if (Array.isArray(updates.keywords) && updates.keywords.length > 0) {
+          const keywordEntities = updates.keywords.map((kw: any, index: number) => new Keyword(
+            `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
+            lessonId,
+            kw.englishText,
+            kw.japaneseText,
+            kw.englishAudioUrl,
+            kw.japaneseAudioUrl,
+            index + 1,
+            new Date(),
+            new Date()
+          ));
+
+          await keywordRepository.createMany(keywordEntities);
+        }
+        
+        // Remove keywords from updates to avoid trying to save them to lesson
+        delete updates.keywords;
       }
 
       Object.assign(lesson, updates);
@@ -401,6 +451,30 @@ export class AdminController {
       });
 
       res.status(201).json(post);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // New method to get lesson with keywords
+  async getLessonWithKeywords(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { lessonId } = req.params;
+      const lessonRepository = new LessonRepository();
+      const keywordRepository = new KeywordRepository();
+      
+      const lesson = await lessonRepository.findById(lessonId);
+      if (!lesson) {
+        res.status(404).json({ error: 'Lesson not found' });
+        return;
+      }
+
+      let keywords: Keyword[] = [];
+      if (lesson.lessonType === LessonType.KEYWORDS) {
+        keywords = await keywordRepository.findByLessonId(lessonId);
+      }
+
+      res.json({ ...lesson, keywords });
     } catch (error) {
       next(error);
     }

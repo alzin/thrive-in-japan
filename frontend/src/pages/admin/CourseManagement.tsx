@@ -30,6 +30,7 @@ import {
   FormLabel,
   RadioGroup,
   Radio,
+  Alert,
 } from '@mui/material';
 import {
   Add,
@@ -37,10 +38,17 @@ import {
   Delete,
   VideoLibrary,
   DragIndicator,
+  Translate,
+  VolumeUp,
+  DeleteOutline,
+  AddCircleOutline,
+  CloudUpload,
 } from '@mui/icons-material';
 import { PictureAsPdf, VideoLibrary as VideoIcon } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
+import { BulkAudioManager } from '../../components/admin/BulkAudioManager';
+
 
 interface Course {
   id: string;
@@ -59,9 +67,16 @@ interface Lesson {
   description: string;
   order: number;
   contentUrl?: string;
-  lessonType: 'VIDEO' | 'PDF';
+  lessonType: 'VIDEO' | 'PDF' | 'KEYWORDS';
   pointsReward: number;
   requiresReflection: boolean;
+}
+
+interface Keyword {
+  englishText: string;
+  japaneseText: string;
+  englishAudioUrl: string;
+  japaneseAudioUrl: string;
 }
 
 export const CourseManagement: React.FC = () => {
@@ -72,6 +87,7 @@ export const CourseManagement: React.FC = () => {
   const [lessonDialog, setLessonDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const [bulkAudioDialog, setBulkAudioDialog] = useState(false);
 
   const [courseForm, setCourseForm] = useState<{
     title: string;
@@ -87,15 +103,15 @@ export const CourseManagement: React.FC = () => {
     isActive: true,
   });
 
-
   const [lessonForm, setLessonForm] = useState({
     title: '',
     description: '',
     order: 1,
-    lessonType: 'VIDEO' as 'VIDEO' | 'PDF',
+    lessonType: 'VIDEO' as 'VIDEO' | 'PDF' | 'KEYWORDS',
     contentUrl: '',
     pointsReward: 10,
     requiresReflection: false,
+    keywords: [] as Keyword[],
   });
 
   useEffect(() => {
@@ -120,11 +136,53 @@ export const CourseManagement: React.FC = () => {
   const fetchLessons = async (courseId: string) => {
     try {
       const response = await api.get(`/courses/${courseId}/lessons`);
+      console.log('Lessons response:', response.data);
       setLessons(response.data);
-      console.log("lessons", response.data)
     } catch (error) {
       console.error('Failed to fetch lessons:', error);
     }
+  };
+
+  const fetchLessonDetails = async (lessonId: string) => {
+    try {
+      const response = await api.get(`/admin/lessons/${lessonId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch lesson details:', error);
+      return null;
+    }
+  };
+
+  const validateLessonForm = () => {
+    if (!lessonForm.title.trim()) {
+      alert('Please enter a lesson title');
+      return false;
+    }
+
+    if (!lessonForm.description.trim()) {
+      alert('Please enter a lesson description');
+      return false;
+    }
+
+    if (lessonForm.lessonType === 'KEYWORDS') {
+      if (lessonForm.keywords.length === 0) {
+        alert('Please add at least one keyword');
+        return false;
+      }
+
+      for (let i = 0; i < lessonForm.keywords.length; i++) {
+        const keyword = lessonForm.keywords[i];
+        if (!keyword.japaneseText.trim() || !keyword.englishText.trim()) {
+          alert(`Keyword ${i + 1} must have both Japanese and English text`);
+          return false;
+        }
+      }
+    } else if (!lessonForm.contentUrl.trim()) {
+      alert(`Please provide a ${lessonForm.lessonType === 'VIDEO' ? 'video' : 'PDF'} URL`);
+      return false;
+    }
+
+    return true;
   };
 
   const handleSaveCourse = async () => {
@@ -150,6 +208,10 @@ export const CourseManagement: React.FC = () => {
   };
 
   const handleSaveLesson = async () => {
+    if (!validateLessonForm()) {
+      return;
+    }
+
     try {
       if (editingLesson) {
         await api.put(`/admin/lessons/${editingLesson.id}`, lessonForm);
@@ -166,10 +228,12 @@ export const CourseManagement: React.FC = () => {
         contentUrl: '',
         pointsReward: 10,
         requiresReflection: false,
+        keywords: [],
       });
       fetchLessons(selectedCourse!.id);
     } catch (error) {
       console.error('Failed to save lesson:', error);
+      alert('Failed to save lesson. Please try again.');
     }
   };
 
@@ -195,6 +259,29 @@ export const CourseManagement: React.FC = () => {
     }
   };
 
+  const addKeyword = () => {
+    setLessonForm({
+      ...lessonForm,
+      keywords: [...lessonForm.keywords, {
+        englishText: '',
+        japaneseText: '',
+        englishAudioUrl: '',
+        japaneseAudioUrl: '',
+      }],
+    });
+  };
+
+  const updateKeyword = (index: number, field: keyof Keyword, value: string) => {
+    const newKeywords = [...lessonForm.keywords];
+    newKeywords[index] = { ...newKeywords[index], [field]: value };
+    setLessonForm({ ...lessonForm, keywords: newKeywords });
+  };
+
+  const removeKeyword = (index: number) => {
+    const newKeywords = lessonForm.keywords.filter((_, i) => i !== index);
+    setLessonForm({ ...lessonForm, keywords: newKeywords });
+  };
+
   if (selectedCourse) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -214,7 +301,9 @@ export const CourseManagement: React.FC = () => {
               setLessonForm({
                 ...lessonForm,
                 order: lessons.length + 1,
+                keywords: [],
               });
+              setEditingLesson(null);
               setLessonDialog(true);
             }}
           >
@@ -230,7 +319,7 @@ export const CourseManagement: React.FC = () => {
                   Lesson List
                 </Typography>
                 <List>
-                  {lessons.map((lesson, index) => (
+                  {lessons.map((lesson) => (
                     <Paper key={lesson.id} sx={{ mb: 2 }}>
                       <ListItem>
                         <IconButton edge="start" sx={{ cursor: 'grab' }}>
@@ -248,14 +337,19 @@ export const CourseManagement: React.FC = () => {
                           secondary={
                             <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
                               <Chip
-                                icon={lesson.lessonType === 'VIDEO' ? <VideoLibrary /> : <PictureAsPdf />}
+                                icon={
+                                  lesson.lessonType === 'VIDEO' ? <VideoLibrary /> :
+                                  lesson.lessonType === 'PDF' ? <PictureAsPdf /> :
+                                  <Translate />
+                                }
                                 label={
+                                  lesson.lessonType === 'KEYWORDS' ? 'Keywords Practice' :
                                   lesson.contentUrl
                                     ? (lesson.lessonType === 'VIDEO' ? 'Has Video' : 'Has PDF')
                                     : (lesson.lessonType === 'VIDEO' ? 'No Video' : 'No PDF')
                                 }
                                 size="small"
-                                color={lesson.contentUrl ? 'success' : 'default'}
+                                color={lesson.contentUrl || lesson.lessonType === 'KEYWORDS' ? 'success' : 'default'}
                               />
                               <Chip
                                 label={`${lesson.pointsReward} points`}
@@ -270,8 +364,11 @@ export const CourseManagement: React.FC = () => {
                         />
                         <ListItemSecondaryAction>
                           <IconButton
-                            onClick={() => {
+                            onClick={async () => {
                               setEditingLesson(lesson);
+                              
+                              const lessonDetails = await fetchLessonDetails(lesson.id);
+                              
                               setLessonForm({
                                 title: lesson.title,
                                 description: lesson.description,
@@ -280,6 +377,7 @@ export const CourseManagement: React.FC = () => {
                                 contentUrl: lesson.contentUrl || '',
                                 pointsReward: lesson.pointsReward,
                                 requiresReflection: lesson.requiresReflection,
+                                keywords: lessonDetails?.keywords || [],
                               });
                               setLessonDialog(true);
                             }}
@@ -374,7 +472,7 @@ export const CourseManagement: React.FC = () => {
                 <RadioGroup
                   row
                   value={lessonForm.lessonType}
-                  onChange={(e) => setLessonForm({ ...lessonForm, lessonType: e.target.value as 'VIDEO' | 'PDF' })}
+                  onChange={(e) => setLessonForm({ ...lessonForm, lessonType: e.target.value as 'VIDEO' | 'PDF' | 'KEYWORDS' })}
                 >
                   <FormControlLabel
                     value="VIDEO"
@@ -396,16 +494,182 @@ export const CourseManagement: React.FC = () => {
                       </Stack>
                     }
                   />
+                  <FormControlLabel
+                    value="KEYWORDS"
+                    control={<Radio />}
+                    label={
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Translate />
+                        <Typography>Keywords Practice</Typography>
+                      </Stack>
+                    }
+                  />
                 </RadioGroup>
               </FormControl>
 
-              <TextField
-                fullWidth
-                label={lessonForm.lessonType === 'VIDEO' ? 'Video URL (S3)' : 'PDF URL (S3)'}
-                value={lessonForm.contentUrl}
-                onChange={(e) => setLessonForm({ ...lessonForm, contentUrl: e.target.value })}
-                helperText={`Enter the S3 URL for the ${lessonForm.lessonType.toLowerCase()}`}
-              />
+              {lessonForm.lessonType !== 'KEYWORDS' && (
+                <TextField
+                  fullWidth
+                  label={lessonForm.lessonType === 'VIDEO' ? 'Video URL (S3)' : 'PDF URL (S3)'}
+                  value={lessonForm.contentUrl}
+                  onChange={(e) => setLessonForm({ ...lessonForm, contentUrl: e.target.value })}
+                  helperText={`Enter the S3 URL for the ${lessonForm.lessonType.toLowerCase()}`}
+                />
+              )}
+
+              {lessonForm.lessonType === 'KEYWORDS' && (
+                <Box>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography variant="h6">Keywords</Typography>
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        startIcon={<CloudUpload />}
+                        onClick={() => setBulkAudioDialog(true)}
+                        variant="outlined"
+                        size="small"
+                        color="secondary"
+                      >
+                        Bulk Audio
+                      </Button>
+                      <Button
+                        startIcon={<AddCircleOutline />}
+                        onClick={addKeyword}
+                        variant="outlined"
+                        size="small"
+                      >
+                        Add Keyword
+                      </Button>
+                    </Stack>
+                  </Stack>
+                  
+                  {lessonForm.keywords.length === 0 ? (
+                    <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'grey.50' }}>
+                      <Typography color="text.secondary" gutterBottom>
+                        No keywords added yet. You can:
+                      </Typography>
+                      <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 2 }}>
+                        <Button
+                          variant="outlined"
+                          startIcon={<AddCircleOutline />}
+                          onClick={addKeyword}
+                        >
+                          Add Manually
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          startIcon={<CloudUpload />}
+                          onClick={() => setBulkAudioDialog(true)}
+                          color="secondary"
+                        >
+                          Import from CSV
+                        </Button>
+                      </Stack>
+                    </Paper>
+                  ) : (
+                    <Stack spacing={2}>
+                      {lessonForm.keywords.map((keyword, index) => (
+                        <Paper key={index} sx={{ p: 2 }}>
+                          <Stack spacing={2}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                              <Typography variant="subtitle2" fontWeight={600}>
+                                Keyword {index + 1}
+                              </Typography>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => removeKeyword(index)}
+                              >
+                                <DeleteOutline />
+                              </IconButton>
+                            </Stack>
+                            
+                            <Grid container spacing={2}>
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                <TextField
+                                  fullWidth
+                                  label="Japanese Text"
+                                  value={keyword.japaneseText}
+                                  onChange={(e) => updateKeyword(index, 'japaneseText', e.target.value)}
+                                  placeholder="こんにちは"
+                                  InputProps={{
+                                    startAdornment: <Translate sx={{ mr: 1, color: 'action.active' }} />,
+                                  }}
+                                />
+                              </Grid>
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                <TextField
+                                  fullWidth
+                                  label="English Text"
+                                  value={keyword.englishText}
+                                  onChange={(e) => updateKeyword(index, 'englishText', e.target.value)}
+                                  placeholder="Hello"
+                                  InputProps={{
+                                    startAdornment: <Translate sx={{ mr: 1, color: 'action.active' }} />,
+                                  }}
+                                />
+                              </Grid>
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                <TextField
+                                  fullWidth
+                                  label="Japanese Audio URL (S3)"
+                                  value={keyword.japaneseAudioUrl}
+                                  onChange={(e) => updateKeyword(index, 'japaneseAudioUrl', e.target.value)}
+                                  placeholder="https://s3.../japanese-audio.mp3"
+                                  InputProps={{
+                                    startAdornment: <VolumeUp sx={{ mr: 1, color: 'action.active' }} />,
+                                  }}
+                                />
+                              </Grid>
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                <TextField
+                                  fullWidth
+                                  label="English Audio URL (S3)"
+                                  value={keyword.englishAudioUrl}
+                                  onChange={(e) => updateKeyword(index, 'englishAudioUrl', e.target.value)}
+                                  placeholder="https://s3.../english-audio.mp3"
+                                  InputProps={{
+                                    startAdornment: <VolumeUp sx={{ mr: 1, color: 'action.active' }} />,
+                                  }}
+                                />
+                              </Grid>
+                            </Grid>
+                          </Stack>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  )}
+                  
+                  {/* Summary */}
+                  {lessonForm.keywords.length > 0 && (
+                    <Paper sx={{ p: 2, mt: 2, bgcolor: 'grey.50' }}>
+                      <Stack spacing={1}>
+                        <Typography variant="subtitle2">Summary</Typography>
+                        <Stack direction="row" spacing={2}>
+                          <Chip
+                            label={`${lessonForm.keywords.length} total keywords`}
+                            size="small"
+                          />
+                          <Chip
+                            label={`${lessonForm.keywords.filter(k => k.japaneseAudioUrl).length} with JP audio`}
+                            size="small"
+                            color={lessonForm.keywords.filter(k => k.japaneseAudioUrl).length === lessonForm.keywords.length ? 'success' : 'warning'}
+                          />
+                          <Chip
+                            label={`${lessonForm.keywords.filter(k => k.englishAudioUrl).length} with EN audio`}
+                            size="small"
+                            color={lessonForm.keywords.filter(k => k.englishAudioUrl).length === lessonForm.keywords.length ? 'success' : 'warning'}
+                          />
+                        </Stack>
+                        {lessonForm.keywords.some(k => !k.japaneseAudioUrl || !k.englishAudioUrl) && (
+                          <Alert severity="warning" sx={{ mt: 1 }}>
+                            Some keywords are missing audio files. Consider using the Bulk Audio manager to import them.
+                          </Alert>
+                        )}
+                      </Stack>
+                    </Paper>
+                  )}
+                </Box>
+              )}
 
               <TextField
                 fullWidth
@@ -432,6 +696,16 @@ export const CourseManagement: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Bulk Audio Manager Dialog */}
+        <BulkAudioManager
+          open={bulkAudioDialog}
+          onClose={() => setBulkAudioDialog(false)}
+          keywords={lessonForm.keywords}
+          onApply={(updatedKeywords) => {
+            setLessonForm({ ...lessonForm, keywords: updatedKeywords });
+          }}
+        />
       </Container>
     );
   }

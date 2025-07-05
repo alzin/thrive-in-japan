@@ -27,8 +27,6 @@ import {
   DialogActions,
   Skeleton,
   Alert,
-  CircularProgress,
-  Divider,
 } from '@mui/material';
 import {
   PlayCircle,
@@ -41,9 +39,11 @@ import {
   School,
   EmojiEvents,
   ArrowBack,
+  Translate,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
+import { KeywordFlashcards } from '../components/classroom/KeywordFlashcards';
 
 interface Course {
   id: string;
@@ -60,13 +60,20 @@ interface Lesson {
   title: string;
   description: string;
   order: number;
-  lessonType: 'VIDEO' | 'PDF';
+  lessonType: 'VIDEO' | 'PDF' | 'KEYWORDS';
   contentUrl?: string;
   pointsReward: number;
   requiresReflection: boolean;
   isCompleted?: boolean;
   completedAt?: string;
   isLocked?: boolean;
+  keywords?: Array<{
+    id: string;
+    englishText: string;
+    japaneseText: string;
+    englishAudioUrl?: string;
+    japaneseAudioUrl?: string;
+  }>;
 }
 
 interface Enrollment {
@@ -320,6 +327,7 @@ export const ClassroomPage: React.FC = () => {
     if (selectedCourse) {
       fetchLessons(selectedCourse.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCourse]);
 
   const fetchData = async () => {
@@ -343,6 +351,7 @@ export const ClassroomPage: React.FC = () => {
     try {
       setLessonLoading(true);
       const response = await api.get(`/courses/${courseId}/lessons`);
+      console.log('Lessons response:', response.data);
 
       // Apply locking logic to lessons
       const lessonsWithLocks = calculateLessonLocks(response.data);
@@ -496,8 +505,10 @@ export const ClassroomPage: React.FC = () => {
                         <Lock color="disabled" />
                       ) : lesson.lessonType === 'VIDEO' ? (
                         <VideoLibrary color={selectedLesson?.id === lesson.id ? 'inherit' : 'action'} />
-                      ) : (
+                      ) : lesson.lessonType === 'PDF' ? (
                         <PictureAsPdf color={selectedLesson?.id === lesson.id ? 'inherit' : 'action'} />
+                      ) : (
+                        <Translate color={selectedLesson?.id === lesson.id ? 'inherit' : 'action'} />
                       )}
                     </ListItemIcon>
                     <ListItemText
@@ -708,8 +719,16 @@ export const ClassroomPage: React.FC = () => {
                 </Typography>
                 <Stack direction="row" spacing={2} alignItems="center" mb={3}>
                   <Chip
-                    icon={selectedLesson.lessonType === 'VIDEO' ? <VideoLibrary /> : <PictureAsPdf />}
-                    label={selectedLesson.lessonType === 'VIDEO' ? 'Video Lesson' : 'PDF Resource'}
+                    icon={
+                      selectedLesson.lessonType === 'VIDEO' ? <VideoLibrary /> :
+                      selectedLesson.lessonType === 'PDF' ? <PictureAsPdf /> :
+                      <Translate />
+                    }
+                    label={
+                      selectedLesson.lessonType === 'VIDEO' ? 'Video Lesson' :
+                      selectedLesson.lessonType === 'PDF' ? 'PDF Resource' :
+                      'Keywords Practice'
+                    }
                   />
                   {selectedLesson.pointsReward > 0 && (
                     <Chip
@@ -759,9 +778,21 @@ export const ClassroomPage: React.FC = () => {
                     </Button>
                   </Box>
                 ) : (
-                  // ... rest of your existing content display logic
                   <>
-                    {selectedLesson.contentUrl ? (
+                  {selectedLesson.lessonType === 'KEYWORDS' ? (
+                    selectedLesson.keywords && selectedLesson.keywords.length > 0 ? (
+                      <KeywordFlashcards
+                        keywords={selectedLesson.keywords}
+                        pointsReward={selectedLesson.pointsReward}
+                        onComplete={handleCompleteLesson}
+                        isLessonCompleted={!!selectedLesson.isCompleted}
+                      />
+                    ) : (
+                      <Alert severity="warning" sx={{ mb: 4 }}>
+                        No keywords available for this lesson. Please contact support.
+                      </Alert>
+                    )
+                    ) : selectedLesson.contentUrl ? (
                       selectedLesson.lessonType === 'VIDEO' ? (
                         <VideoPlayer url={selectedLesson.contentUrl} />
                       ) : (
@@ -774,25 +805,27 @@ export const ClassroomPage: React.FC = () => {
                     )}
 
                     {/* Action buttons */}
-                    <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 4 }}>
-                      {selectedLesson.lessonType === 'PDF' && selectedLesson.contentUrl && (
+                    {selectedLesson.lessonType !== 'KEYWORDS' && (
+                      <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 4 }}>
+                        {selectedLesson.lessonType === 'PDF' && selectedLesson.contentUrl && (
+                          <Button
+                            variant="outlined"
+                            href={selectedLesson.contentUrl}
+                            download
+                            target="_blank"
+                          >
+                            Download PDF
+                          </Button>
+                        )}
                         <Button
-                          variant="outlined"
-                          href={selectedLesson.contentUrl}
-                          download
-                          target="_blank"
+                          variant="contained"
+                          disabled={selectedLesson.isCompleted}
+                          onClick={handleCompleteLesson}
                         >
-                          Download PDF
+                          {selectedLesson.isCompleted ? 'Completed' : 'Mark as Complete'}
                         </Button>
-                      )}
-                      <Button
-                        variant="contained"
-                        disabled={selectedLesson.isCompleted}
-                        onClick={handleCompleteLesson}
-                      >
-                        {selectedLesson.isCompleted ? 'Completed' : 'Mark as Complete'}
-                      </Button>
-                    </Stack>
+                      </Stack>
+                    )}
 
                     {selectedLesson.requiresReflection && !selectedLesson.isCompleted && (
                       <Alert severity="info" sx={{ mt: 2 }}>

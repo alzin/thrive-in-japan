@@ -57,6 +57,7 @@ router.post(
 );
 router.put('/lessons/:lessonId', adminController.updateLesson);
 router.delete('/lessons/:lessonId', adminController.deleteLesson);
+router.get('/lessons/:lessonId', adminController.getLessonWithKeywords);
 
 // Session management
 router.post(
