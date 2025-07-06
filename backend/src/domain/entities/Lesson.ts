@@ -1,7 +1,8 @@
 // backend/src/domain/entities/Lesson.ts
 export enum LessonType {
   VIDEO = 'VIDEO',
-  PDF = 'PDF'
+  PDF = 'PDF',
+  KEYWORDS = 'KEYWORDS'
 }
 
 export interface ILesson {
@@ -10,8 +11,8 @@ export interface ILesson {
   title: string;
   description: string;
   order: number;
-  lessonType: LessonType; // New field
-  contentUrl?: string; // Renamed from videoUrl to be more generic
+  lessonType: LessonType; 
+  contentUrl?: string; 
   audioFiles: string[];
   resources: string[];
   requiresReflection: boolean;
