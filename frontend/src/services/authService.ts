@@ -1,3 +1,4 @@
+// frontend/src/services/authService.ts
 import api from './api';
 
 interface LoginResponse {
@@ -6,7 +7,16 @@ interface LoginResponse {
     email: string;
     role: string;
   };
-  token: string;
+  csrfToken: string;
+}
+
+interface CheckAuthResponse {
+  authenticated: boolean;
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+  };
 }
 
 export const authService = {
@@ -21,5 +31,19 @@ export const authService = {
 
   async register(email: string, stripePaymentIntentId: string): Promise<void> {
     await api.post('/auth/register', { email, stripePaymentIntentId });
+  },
+
+  async refresh(): Promise<LoginResponse> {
+    const response = await api.post('/auth/refresh');
+    return response.data;
+  },
+
+  async checkAuth(): Promise<CheckAuthResponse> {
+    try {
+      const response = await api.get('/auth/check');
+      return response.data;
+    } catch (error) {
+      return { authenticated: false };
+    }
   },
 };
