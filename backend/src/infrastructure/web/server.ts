@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import { errorHandler } from './middleware/errorHandler';
 import { authRouter } from './routes/auth.routes';
 import { userRouter } from './routes/user.routes';
@@ -30,13 +31,27 @@ export class Server {
   }
 
   private configureMiddleware(): void {
-    this.app.use(helmet());
+    this.app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", "data:", "blob:"],
+        },
+      },
+    }));
+
     this.app.use(cors({
       origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-      credentials: true
+      credentials: true, // Important for cookies
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     }));
+
     this.app.use(compression());
     this.app.use(morgan('dev'));
+    this.app.use(cookieParser()); // Add cookie parser
 
     // Raw body for Stripe webhooks
     this.app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));

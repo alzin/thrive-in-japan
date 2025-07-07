@@ -1,5 +1,7 @@
+// backend/src/infrastructure/web/middleware/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
 import { TokenService } from '../../services/TokenService';
+import { COOKIE_NAMES } from '../../config/cookieConfig';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -11,18 +13,18 @@ export interface AuthRequest extends Request {
 
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction): void => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
+    const accessToken = req.cookies[COOKIE_NAMES.ACCESS_TOKEN];
+
+    if (!accessToken) {
       res.status(401).json({ error: 'No token provided' });
       return;
     }
 
     const tokenService = new TokenService();
-    const payload = tokenService.verifyToken(token);
-    
+    const payload = tokenService.verifyAccessToken(accessToken);
+
     if (!payload) {
-      res.status(401).json({ error: 'Invalid token' });
+      res.status(401).json({ error: 'Invalid or expired token' });
       return;
     }
 
@@ -47,4 +49,26 @@ export const authorize = (...roles: string[]) => {
 
     next();
   };
+};
+
+// CSRF Protection Middleware
+export const validateCSRF = (req: Request, res: Response, next: NextFunction): void => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return next();
+  }
+
+  const csrfToken = req.headers['x-csrf-token'] as string;
+
+  if (!csrfToken) {
+    res.status(403).json({ error: 'CSRF token missing' });
+    return;
+  }
+
+  const tokenService = new TokenService();
+  if (!tokenService.verifyCSRFToken(csrfToken)) {
+    res.status(403).json({ error: 'Invalid CSRF token' });
+    return;
+  }
+
+  next();
 };
