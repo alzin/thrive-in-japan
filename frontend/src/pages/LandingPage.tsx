@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -63,13 +62,7 @@ const FeatureCard = ({ icon, title, description, delay }: any) => (
 );
 
 export const LandingPage: React.FC = () => {
-  const navigate = useNavigate();
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-
-  const handlePaymentSuccess = (paymentIntentId: string) => {
-    // After successful payment, redirect to login
-    navigate('/login');
-  };
 
   return (
     <Box sx={{ minHeight: '100vh', background: '#fafafa' }}>
@@ -105,7 +98,7 @@ export const LandingPage: React.FC = () => {
             background: 'rgba(255, 255, 255, 0.05)',
           }}
         />
-        
+
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           <Grid container spacing={4} alignItems="center">
             <Grid size={{ xs: 12, md: 6 }}>
@@ -303,7 +296,6 @@ export const LandingPage: React.FC = () => {
       <PaymentModal
         open={paymentModalOpen}
         onClose={() => setPaymentModalOpen(false)}
-        onSuccess={handlePaymentSuccess}
       />
     </Box>
   );
