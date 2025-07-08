@@ -67,4 +67,12 @@ export class TokenService implements ITokenService {
     // In a real implementation, you'd verify against stored CSRF tokens
     return token.length === 64; // Simple validation for now
   }
+
+  generatePasswordResetToken(userId: string, email: string): string {
+    return jwt.sign(
+      { userId, email, type: 'password-reset' },
+      this.accessTokenSecret,
+      { expiresIn: '1h' } as SignOptions // Shorter expiration for security
+    );
+  }
 }

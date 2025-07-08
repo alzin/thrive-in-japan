@@ -13,8 +13,25 @@ import { TokenService } from '../../services/TokenService';
 import { PaymentService } from '../../services/PaymentService';
 import { AuthenticationError } from '../../../domain/errors/AuthenticationError';
 import { getAccessTokenCookieConfig, getRefreshTokenCookieConfig, COOKIE_NAMES } from '../../config/cookieConfig';
+import { VerificationCodeService } from '../../services/VerificationCodeService';
 
 export class AuthController {
+  private verificationCodeService: VerificationCodeService;
+
+  constructor() {
+    this.verificationCodeService = new VerificationCodeService();
+
+    // Bind all methods to preserve 'this' context
+    this.register = this.register.bind(this);
+    this.sendVerificationCode = this.sendVerificationCode.bind(this);
+    this.verifyEmail = this.verifyEmail.bind(this);
+    this.completeRegistration = this.completeRegistration.bind(this);
+    this.login = this.login.bind(this);
+    this.refresh = this.refresh.bind(this);
+    this.logout = this.logout.bind(this);
+    this.checkAuth = this.checkAuth.bind(this);
+  }
+
   async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email, stripePaymentIntentId } = req.body;
@@ -33,6 +50,115 @@ export class AuthController {
       res.status(201).json({
         message: 'Registration successful. Check your email for login credentials.',
         userId: result.user.id
+      });
+    } catch (error: any) {
+      if (error.message.includes('already exists')) {
+        res.status(409).json({ error: error.message });
+      } else {
+        next(error);
+      }
+    }
+  }
+
+  async sendVerificationCode(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email } = req.body;
+      console.log(email)
+      // Check if user already exists
+      const userRepository = new UserRepository();
+      const existingUser = await userRepository.findByEmail(email);
+      if (existingUser) {
+        res.status(409).json({ error: 'This email is already registered' });
+        return;
+      }
+
+      // Generate and send code
+      const code = await this.verificationCodeService.generateAndSendCode(email);
+
+      res.json({
+        message: 'Verification code sent successfully',
+        // In production, don't send the code in response
+        ...(process.env.NODE_ENV === 'development' && { code }),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email, code } = req.body;
+
+      const isValid = await this.verificationCodeService.verifyCode(email, code);
+
+      if (!isValid) {
+        res.status(400).json({ error: 'Invalid or expired verification code' });
+        return;
+      }
+
+      res.json({ message: 'Email verified successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async completeRegistration(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email, name, password, stripePaymentIntentId } = req.body;
+
+      // Verify email was verified
+      const isEmailVerified = await this.verificationCodeService.isEmailVerified(email);
+      if (!isEmailVerified) {
+        res.status(400).json({ error: 'Email not verified' });
+        return;
+      }
+
+      const registerUseCase = new RegisterUserUseCase(
+        new UserRepository(),
+        new ProfileRepository(),
+        new PaymentRepository(),
+        new EmailService(),
+        new PasswordService(),
+        new PaymentService()
+      );
+
+      const result = await registerUseCase.executeWithPassword({
+        email,
+        name,
+        password,
+        stripePaymentIntentId
+      });
+
+      // Auto-login after registration
+      const tokenService = new TokenService();
+      const tokens = tokenService.generateTokenPair({
+        userId: result.user.id,
+        email: result.user.email,
+        role: result.user.role
+      });
+
+      // Set cookies like in the login method
+      const accessTokenConfig = getAccessTokenCookieConfig();
+      const refreshTokenConfig = getRefreshTokenCookieConfig();
+
+      res.cookie(COOKIE_NAMES.ACCESS_TOKEN, tokens.accessToken, {
+        ...accessTokenConfig,
+        maxAge: 15 * 60 * 1000, // 15 minutes
+      });
+
+      res.cookie(COOKIE_NAMES.REFRESH_TOKEN, tokens.refreshToken, {
+        ...refreshTokenConfig,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      res.status(201).json({
+        message: 'Registration successful',
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          role: result.user.role
+        },
+        token: tokens.accessToken // Include access token in response if needed
       });
     } catch (error: any) {
       if (error.message.includes('already exists')) {

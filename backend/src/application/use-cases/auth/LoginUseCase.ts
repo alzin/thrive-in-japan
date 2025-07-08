@@ -38,7 +38,7 @@ export class LoginUseCase {
 
     const isPasswordValid = await this.passwordService.compare(dto.password, user.password);
     if (!isPasswordValid) {
-      throw new AuthenticationError('Invalid credentials');
+      throw new AuthenticationError('Invalid credentials', 400);
     }
 
     if (!user.isActive) {

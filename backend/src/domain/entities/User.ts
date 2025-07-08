@@ -23,7 +23,7 @@ export class User implements IUser {
     public isActive: boolean,
     public createdAt: Date,
     public updatedAt: Date
-  ) {}
+  ) { }
 
   isAdmin(): boolean {
     return this.role === UserRole.ADMIN;
