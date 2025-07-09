@@ -31,25 +31,25 @@ export class RefreshTokenUseCase {
         // Verify refresh token
         const userId = this.tokenService.verifyRefreshToken(dto.refreshToken);
         if (!userId) {
-            throw new AuthenticationError('Invalid refresh token');
+            throw new AuthenticationError('Invalid refresh token', 403);
         }
 
         // Find stored refresh token
         const storedToken = await this.refreshTokenRepository.findByToken(dto.refreshToken);
         if (!storedToken || storedToken.userId !== userId) {
-            throw new AuthenticationError('Invalid refresh token');
+            throw new AuthenticationError('Invalid refresh token', 403);
         }
 
         // Check if token is expired
         if (storedToken.isExpired()) {
             await this.refreshTokenRepository.delete(storedToken.id);
-            throw new AuthenticationError('Refresh token expired');
+            throw new AuthenticationError('Refresh token expired', 403);
         }
 
         // Get user
         const user = await this.userRepository.findById(userId);
         if (!user || !user.isActive) {
-            throw new AuthenticationError('User not found or inactive');
+            throw new AuthenticationError('User not found or inactive', 403);
         }
 
         // Rotate refresh token (delete old, create new)
