@@ -77,8 +77,8 @@ export class Server {
     this.app.use('/api/sessions', sessionRouter);
 
     // Health check
-    this.app.get('/health', (req, res) => {
-      res.json({ status: 'OK', timestamp: new Date().toISOString() });
+    this.app.get('/', (req, res) => {
+      res.send("OK")
     });
   }
 

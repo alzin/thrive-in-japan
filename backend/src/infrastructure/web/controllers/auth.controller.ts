@@ -63,12 +63,12 @@ export class AuthController {
   async sendVerificationCode(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email } = req.body;
-      console.log(email)
+
       // Check if user already exists
       const userRepository = new UserRepository();
       const existingUser = await userRepository.findByEmail(email);
       if (existingUser) {
-        res.status(409).json({ error: 'This email is already registered' });
+        res.status(409).json({ error: 'This email is already registered, Please Login' });
         return;
       }
 

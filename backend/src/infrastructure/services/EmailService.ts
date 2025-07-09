@@ -124,7 +124,6 @@ export class EmailService implements IEmailService {
   }
 
   async sendVerificationCode(email: string, code: string): Promise<void> {
-    console.log(email, process.env.EMAIL_USER)
 
     const mailOptions = {
       from: `"Thrive in Japan" <${process.env.EMAIL_USER}>`,

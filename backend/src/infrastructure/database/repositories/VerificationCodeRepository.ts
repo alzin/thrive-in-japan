@@ -30,14 +30,19 @@ export class VerificationCodeRepository {
     async findValidCode(email: string, code: string): Promise<VerificationCodeEntity | null> {
         const now = new Date();
 
-        return await this.repository
+        const latestCode = await this.repository
             .createQueryBuilder('vc')
             .where('vc.email = :email', { email })
-            .andWhere('vc.code = :code', { code })
             .andWhere('vc.expiresAt > :now', { now })
             .andWhere('vc.verified = false')
             .orderBy('vc.createdAt', 'DESC')
             .getOne();
+
+        if (!latestCode || latestCode.code !== code) {
+            return null;
+        }
+
+        return latestCode;
     }
 
     async markAsVerified(id: string): Promise<void> {
