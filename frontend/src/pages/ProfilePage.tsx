@@ -1,5 +1,5 @@
 // frontend/src/pages/ProfilePage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Container,
@@ -29,12 +29,10 @@ import {
   Tooltip,
   useTheme,
   useMediaQuery,
-  Divider,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  CircularProgress,
   Alert,
 } from '@mui/material';
 import {
@@ -47,7 +45,6 @@ import {
   CalendarMonth,
   CheckCircle,
   Lock,
-  Group,
   Forum,
   VideoCall,
   WorkspacePremium,
@@ -98,7 +95,7 @@ export const ProfilePage: React.FC = () => {
   const [coverImageDialog, setCoverImageDialog] = useState(false);
   const profile = useSelector((state: RootState) => state.profile.data);
   const user = useSelector((state: RootState) => state.auth.user);
-  
+
   const [formData, setFormData] = useState({
     name: profile?.name || '',
     bio: profile?.bio || '',
@@ -118,55 +115,55 @@ export const ProfilePage: React.FC = () => {
   };
 
   const achievements: Achievement[] = [
-    { 
-      id: '1', 
-      icon: '🔥', 
-      title: '7-Day Streak', 
-      description: 'Study for 7 days in a row', 
+    {
+      id: '1',
+      icon: '🔥',
+      title: '7-Day Streak',
+      description: 'Study for 7 days in a row',
       unlockedAt: '2024-01-15',
       rarity: 'common'
     },
-    { 
-      id: '2', 
-      icon: '🌸', 
-      title: 'First Steps', 
-      description: 'Complete your first lesson', 
+    {
+      id: '2',
+      icon: '🌸',
+      title: 'First Steps',
+      description: 'Complete your first lesson',
       unlockedAt: '2024-01-10',
       rarity: 'common'
     },
-    { 
-      id: '3', 
-      icon: '💬', 
-      title: 'Community Champion', 
-      description: 'Make 50 posts in the community', 
+    {
+      id: '3',
+      icon: '💬',
+      title: 'Community Champion',
+      description: 'Make 50 posts in the community',
       unlockedAt: '2024-01-20',
       progress: 35,
       total: 50,
       rarity: 'rare'
     },
-    { 
-      id: '4', 
-      icon: '🎯', 
-      title: 'Quiz Master', 
-      description: 'Score 100% on 10 quizzes', 
+    {
+      id: '4',
+      icon: '🎯',
+      title: 'Quiz Master',
+      description: 'Score 100% on 10 quizzes',
       progress: 3,
       total: 10,
       rarity: 'epic'
     },
-    { 
-      id: '5', 
-      icon: '🗣️', 
-      title: 'Conversation Expert', 
-      description: 'Complete 25 speaking sessions', 
+    {
+      id: '5',
+      icon: '🗣️',
+      title: 'Conversation Expert',
+      description: 'Complete 25 speaking sessions',
       progress: 5,
       total: 25,
       rarity: 'rare'
     },
-    { 
-      id: '6', 
-      icon: '📚', 
-      title: 'Course Completionist', 
-      description: 'Finish all available courses', 
+    {
+      id: '6',
+      icon: '📚',
+      title: 'Course Completionist',
+      description: 'Finish all available courses',
       progress: 1,
       total: 4,
       rarity: 'legendary'
@@ -215,30 +212,30 @@ export const ProfilePage: React.FC = () => {
   ];
 
   const stats = [
-    { 
-      label: 'Total Points', 
-      value: profile?.points || 0, 
+    {
+      label: 'Total Points',
+      value: profile?.points || 0,
       icon: <EmojiEvents sx={{ color: '#FFD700' }} />,
       color: '#FFD700',
       description: 'Lifetime earnings'
     },
-    { 
-      label: 'Current Level', 
-      value: profile?.level || 1, 
+    {
+      label: 'Current Level',
+      value: profile?.level || 1,
       icon: <TrendingUp sx={{ color: '#FF6B6B' }} />,
       color: '#FF6B6B',
       description: 'Keep learning to level up'
     },
-    { 
-      label: 'Lessons Completed', 
-      value: 12, 
+    {
+      label: 'Lessons Completed',
+      value: 12,
       icon: <School sx={{ color: '#4ECDC4' }} />,
       color: '#4ECDC4',
       description: 'Out of 30 total'
     },
-    { 
-      label: 'Study Streak', 
-      value: '7 days', 
+    {
+      label: 'Study Streak',
+      value: '7 days',
       icon: <Star sx={{ color: '#FFB7C5' }} />,
       color: '#FFB7C5',
       description: 'Your best: 7 days'
@@ -252,7 +249,7 @@ export const ProfilePage: React.FC = () => {
 
   const AchievementCard = ({ achievement }: { achievement: Achievement }) => {
     const isUnlocked = !!achievement.unlockedAt;
-    
+
     return (
       <motion.div
         whileHover={{ y: -4 }}
@@ -266,7 +263,7 @@ export const ProfilePage: React.FC = () => {
             position: 'relative',
             overflow: 'visible',
             opacity: isUnlocked ? 1 : 0.7,
-            background: isUnlocked 
+            background: isUnlocked
               ? `linear-gradient(135deg, ${rarityColors[achievement.rarity || 'common']}10 0%, ${rarityColors[achievement.rarity || 'common']}05 100%)`
               : 'linear-gradient(135deg, #f5f5f5 0%, #fafafa 100%)',
             border: '1px solid',
@@ -474,7 +471,7 @@ export const ProfilePage: React.FC = () => {
                 )}
               </Grid>
 
-                <Grid size={{ xs: 12, md: 3 }}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <Stack spacing={2} alignItems={{ xs: 'center', md: 'flex-end' }}>
                   {editing ? (
                     <>
@@ -745,7 +742,7 @@ export const ProfilePage: React.FC = () => {
 
                     <Grid container spacing={3}>
                       {achievements.map((achievement) => (
-                       <Grid size={{ xs: 12, sm: 6, md: 4 }} key={achievement.id}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={achievement.id}>
                           <AchievementCard achievement={achievement} />
                         </Grid>
                       ))}
@@ -868,37 +865,37 @@ export const ProfilePage: React.FC = () => {
                   </Typography>
                   <Stack spacing={2}>
                     {[
-                      { 
-                        action: 'Completed Lesson 5: Greetings', 
-                        time: '2 hours ago', 
+                      {
+                        action: 'Completed Lesson 5: Greetings',
+                        time: '2 hours ago',
                         points: '+50',
                         icon: <School />,
                         color: '#4ECDC4'
                       },
-                      { 
-                        action: 'Posted in community', 
-                        time: '5 hours ago', 
+                      {
+                        action: 'Posted in community',
+                        time: '5 hours ago',
                         points: '+10',
                         icon: <Forum />,
                         color: '#FFB7C5'
                       },
-                      { 
-                        action: 'Achieved 7-day streak', 
-                        time: 'Yesterday', 
+                      {
+                        action: 'Achieved 7-day streak',
+                        time: 'Yesterday',
                         points: '+100',
                         icon: <EmojiEvents />,
                         color: '#FFD700'
                       },
-                      { 
-                        action: 'Joined speaking session', 
-                        time: '2 days ago', 
+                      {
+                        action: 'Joined speaking session',
+                        time: '2 days ago',
                         points: '+30',
                         icon: <VideoCall />,
                         color: '#FF6B6B'
                       },
-                      { 
-                        action: 'Completed quiz with 90% score', 
-                        time: '3 days ago', 
+                      {
+                        action: 'Completed quiz with 90% score',
+                        time: '3 days ago',
                         points: '+45',
                         icon: <CheckCircle />,
                         color: '#00B894'

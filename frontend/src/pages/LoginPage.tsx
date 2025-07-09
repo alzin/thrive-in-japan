@@ -1,5 +1,5 @@
 // frontend/src/pages/LoginPage.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -25,7 +25,8 @@ import { AppDispatch, RootState } from '../store/store';
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { loading, error } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, loading, error } = useSelector((state: RootState) => state.auth);
+
 
   const [formData, setFormData] = useState({
     email: '',
@@ -47,6 +48,12 @@ export const LoginPage: React.FC = () => {
       dispatch(clearError());
     }
   };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/profile');
+    }
+  }, [isAuthenticated, navigate]);
 
   return (
     <Box
@@ -102,7 +109,7 @@ export const LoginPage: React.FC = () => {
 
               {error && (
                 <Alert severity="error" sx={{ mb: 3 }}>
-                  {error === 'Invalid credentials' 
+                  {error === 'Invalid credentials'
                     ? 'Invalid email or password. Please check your credentials and try again. If you forgot your password, check your email for the temporary password sent during registration.'
                     : error
                   }

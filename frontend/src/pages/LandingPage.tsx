@@ -64,6 +64,10 @@ const FeatureCard = ({ icon, title, description, delay }: any) => (
 export const LandingPage: React.FC = () => {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
+  const handleLogin = () => {
+    window.location.href = '/login';
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', background: '#fafafa' }}>
       {/* Hero Section */}
@@ -125,23 +129,43 @@ export const LandingPage: React.FC = () => {
                   <Chip label="Cultural Context" sx={{ background: 'rgba(255,255,255,0.2)', color: 'white' }} />
                   <Chip label="Live Sessions" sx={{ background: 'rgba(255,255,255,0.2)', color: 'white' }} />
                 </Stack>
-                <Button
-                  variant="contained"
-                  size="large"
-                  onClick={() => setPaymentModalOpen(true)}
-                  sx={{
-                    background: 'white',
-                    color: '#FF6B6B',
-                    fontSize: '1.125rem',
-                    px: 4,
-                    py: 1.5,
-                    '&:hover': {
-                      background: '#f5f5f5',
-                    },
-                  }}
-                >
-                  Start Your Journey - ¥5,000
-                </Button>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <Button
+                    variant="contained"
+                    size="large"
+                    onClick={() => setPaymentModalOpen(true)}
+                    sx={{
+                      background: 'white',
+                      color: '#FF6B6B',
+                      fontSize: '1.125rem',
+                      px: 4,
+                      py: 1.5,
+                      '&:hover': {
+                        background: '#f5f5f5',
+                      },
+                    }}
+                  >
+                    Start Your Journey - ¥5,000
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    onClick={handleLogin}
+                    sx={{
+                      borderColor: 'rgba(255, 255, 255, 0.7)',
+                      color: 'white',
+                      fontSize: '1.125rem',
+                      px: 4,
+                      py: 1.5,
+                      '&:hover': {
+                        borderColor: 'white',
+                        background: 'rgba(255, 255, 255, 0.1)',
+                      },
+                    }}
+                  >
+                    Login
+                  </Button>
+                </Stack>
               </motion.div>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>

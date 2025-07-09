@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Provider, useDispatch, useSelector } from 'react-redux';
@@ -32,7 +32,7 @@ import { CalendarPage } from './pages/CalendarPage';
 
 function AppContent() {
   const dispatch = useDispatch<AppDispatch>();
-  const { authChecking } = useSelector((state: RootState) => state.auth);
+  const { authChecking, isAuthenticated } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
     // Check auth status on app load
@@ -59,8 +59,10 @@ function AppContent() {
     <Router>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-
+        <Route
+          path="/login"
+          element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+        />
         {/* User Routes */}
         <Route
           path="/dashboard"
