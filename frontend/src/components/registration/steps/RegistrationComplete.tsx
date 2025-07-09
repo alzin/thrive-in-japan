@@ -21,7 +21,7 @@ export const RegistrationComplete: React.FC = () => {
         // Auto-redirect after 5 seconds
         const timer = setTimeout(() => {
             navigate('/profile');
-        }, 20000);
+        }, 10000);
 
         return () => clearTimeout(timer);
     }, [navigate]);
@@ -106,7 +106,7 @@ export const RegistrationComplete: React.FC = () => {
                             </Link>
                         </Button>
                         <Typography variant="caption" color="text.secondary">
-                            Redirecting automatically in 5 seconds...
+                            Redirecting automatically in 10 seconds...
                         </Typography>
                     </Stack>
                 </Stack>

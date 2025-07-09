@@ -262,9 +262,12 @@ export class AuthController {
   }
 
   async logout(req: Request, res: Response): Promise<void> {
-    // Clear cookies
-    res.clearCookie(COOKIE_NAMES.ACCESS_TOKEN);
-    res.clearCookie(COOKIE_NAMES.REFRESH_TOKEN);
+
+    const accessTokenConfig = getAccessTokenCookieConfig();
+    const refreshTokenConfig = getRefreshTokenCookieConfig();
+
+    res.clearCookie(COOKIE_NAMES.ACCESS_TOKEN, accessTokenConfig);
+    res.clearCookie(COOKIE_NAMES.REFRESH_TOKEN, refreshTokenConfig);
 
     // If we have a refresh token, invalidate it in the database
     const refreshToken = req.cookies[COOKIE_NAMES.REFRESH_TOKEN];

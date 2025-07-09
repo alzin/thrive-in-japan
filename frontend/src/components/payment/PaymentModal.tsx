@@ -18,12 +18,19 @@ interface PaymentModalProps {
 export const PaymentModal: React.FC<PaymentModalProps> = ({ open, onClose }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [currentStep, setCurrentStep] = React.useState(0);
+
+  const handleClose = () => {
+    // Prevent closing if on step 2 (Create Account)
+    if (currentStep !== 2) {
+      onClose();
+    }
+  };
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
-      // fullScreen={isMobile}
+      onClose={handleClose}
       maxWidth="sm"
       fullWidth
       sx={{
@@ -32,19 +39,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ open, onClose }) => 
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
-
         },
       }}
     >
       {/* Mobile Header with Close Button */}
-      {isMobile && (
+      {isMobile && currentStep !== 2 && (
         <IconButton
-          onClick={onClose}
+          onClick={handleClose}
           sx={{
             position: 'absolute',
             right: 1,
             top: 1,
-            // border: '1px solid gray',
             zIndex: 1300,
             bgcolor: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(10px)',
@@ -65,12 +70,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ open, onClose }) => 
           overflow: 'auto',
           WebkitOverflowScrolling: 'touch',
           flex: 1,
-          // Compensate for the close button header on mobile
-          // pt: isMobile ? 0 : 2,
         }}
       >
-        <RegistrationFlow />
+        <RegistrationFlow onStepChange={setCurrentStep} />
       </DialogContent>
-    </Dialog >
+    </Dialog>
   );
 };

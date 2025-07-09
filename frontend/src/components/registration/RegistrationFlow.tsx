@@ -23,13 +23,23 @@ interface RegistrationData {
     password?: string;
 }
 
+interface RegistrationFlowProps {
+    onStepChange?: (step: number) => void;
+}
+
 const steps = ['Verify Email', 'Payment', 'Create Account', 'Complete'];
 
-export const RegistrationFlow: React.FC = () => {
+export const RegistrationFlow: React.FC<RegistrationFlowProps> = ({ onStepChange }) => {
     const [activeStep, setActiveStep] = useState(0);
     const [registrationData, setRegistrationData] = useState<RegistrationData>({
         email: '',
     });
+
+    // Call onStepChange whenever step changes
+    React.useEffect(() => {
+        onStepChange?.(activeStep);
+    }, [activeStep, onStepChange]);
+
 
     const handleNext = (data: Partial<RegistrationData>) => {
         setRegistrationData({ ...registrationData, ...data });
