@@ -26,7 +26,7 @@ interface RegistrationData {
 const steps = ['Verify Email', 'Payment', 'Create Account', 'Complete'];
 
 export const RegistrationFlow: React.FC = () => {
-    const [activeStep, setActiveStep] = useState(3);
+    const [activeStep, setActiveStep] = useState(0);
     const [registrationData, setRegistrationData] = useState<RegistrationData>({
         email: '',
     });
