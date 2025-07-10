@@ -15,6 +15,8 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ClassroomPage } from './pages/ClassroomPage';
 import { CommunityPage } from './pages/CommunityPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -63,6 +65,9 @@ function AppContent() {
           path="/login"
           element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
         />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+
         {/* User Routes */}
         <Route
           path="/dashboard"

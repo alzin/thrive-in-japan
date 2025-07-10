@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { AuthController } from '../controllers/auth.controller';
 import { validateRequest } from '../middleware/validateRequest';
+import { passwordResetLimiter, loginLimiter } from '../middleware/rateLimiter.middleware';
 
 const router = Router();
 const authController = new AuthController();
@@ -53,6 +54,7 @@ router.post(
 // Existing endpoints
 router.post(
   '/login',
+  // loginLimiter,
   [
     body('email').isEmail(),
     body('password').notEmpty()
@@ -64,5 +66,35 @@ router.post(
 router.post('/refresh', authController.refresh);
 router.post('/logout', authController.logout);
 router.get('/check', authController.checkAuth);
+
+// Password reset endpoints
+router.post(
+  '/forgot-password',
+  // passwordResetLimiter,
+  [
+    body('email').isEmail()
+  ],
+  validateRequest,
+  authController.requestPasswordReset
+);
+
+router.post(
+  '/reset-password',
+  [
+    body('token').notEmpty().trim(),
+    body('newPassword')
+      .isLength({ min: 8 })
+      .withMessage('Password must be at least 8 characters long')
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+      .withMessage('Password must contain uppercase, lowercase, number and special character')
+  ],
+  validateRequest,
+  authController.resetPassword
+);
+
+router.get(
+  '/reset-password/validate/:token',
+  authController.validateResetToken
+);
 
 export { router as authRouter };

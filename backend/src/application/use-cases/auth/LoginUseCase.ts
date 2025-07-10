@@ -33,7 +33,7 @@ export class LoginUseCase {
   async execute(dto: LoginDTO): Promise<{ response: LoginResponse; tokens: { accessToken: string; refreshToken: string } }> {
     const user = await this.userRepository.findByEmail(dto.email);
     if (!user) {
-      throw new AuthenticationError('Invalid credentials');
+      throw new AuthenticationError('Invalid credentials', 400);
     }
 
     const isPasswordValid = await this.passwordService.compare(dto.password, user.password);

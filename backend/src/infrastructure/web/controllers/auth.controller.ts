@@ -14,6 +14,8 @@ import { PaymentService } from '../../services/PaymentService';
 import { AuthenticationError } from '../../../domain/errors/AuthenticationError';
 import { getAccessTokenCookieConfig, getRefreshTokenCookieConfig, COOKIE_NAMES } from '../../config/cookieConfig';
 import { VerificationCodeService } from '../../services/VerificationCodeService';
+import { ResetPasswordUseCase } from '../../../application/use-cases/auth/ResetPasswordUseCase';
+import { RequestPasswordResetUseCase } from '../../../application/use-cases/auth/RequestPasswordResetUseCase';
 
 export class AuthController {
   private verificationCodeService: VerificationCodeService;
@@ -316,4 +318,78 @@ export class AuthController {
       }
     });
   }
+
+  async requestPasswordReset(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email } = req.body;
+
+      const requestPasswordResetUseCase = new RequestPasswordResetUseCase(
+        new UserRepository(),
+        new EmailService(),
+        new TokenService()
+      );
+
+      await requestPasswordResetUseCase.execute({ email });
+
+      // Always return success to prevent email enumeration
+      res.json({
+        message: 'If an account exists with this email, a password reset link has been sent.'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token, newPassword } = req.body;
+
+      const resetPasswordUseCase = new ResetPasswordUseCase(
+        new UserRepository(),
+        new PasswordService(),
+        new TokenService()
+      );
+
+      await resetPasswordUseCase.execute({ token, newPassword });
+
+      res.json({
+        message: 'Password reset successful. You can now login with your new password.'
+      });
+    } catch (error) {
+      if (error instanceof AuthenticationError) {
+        res.status(error.statusCode).json({ error: error.message });
+      } else if (error instanceof Error && error.message.includes('Password must be')) {
+        res.status(400).json({ error: error.message });
+      } else {
+        next(error);
+      }
+    }
+  }
+
+  async validateResetToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token } = req.params;
+
+      const tokenService = new TokenService();
+      const payload = tokenService.verifyAccessToken(token);
+
+      if (!payload) {
+        res.status(400).json({ valid: false, error: 'Invalid or expired token' });
+        return;
+      }
+
+      const userRepository = new UserRepository();
+      const user = await userRepository.findById(payload.userId);
+
+      if (!user) {
+        res.status(400).json({ valid: false, error: 'Invalid token' });
+        return;
+      }
+
+      res.json({ valid: true, email: user.email });
+    } catch (error) {
+      res.status(400).json({ valid: false, error: 'Invalid token' });
+    }
+  }
 }
+

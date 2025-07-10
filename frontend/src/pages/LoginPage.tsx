@@ -174,7 +174,12 @@ export const LoginPage: React.FC = () => {
               </form>
 
               <Box textAlign="center" mt={3}>
-                <Button color="primary" size="small">
+                <Button
+                  color="primary"
+                  size="small"
+                  component={Link}
+                  to="/forgot-password"
+                >
                   Forgot Password?
                 </Button>
               </Box>
