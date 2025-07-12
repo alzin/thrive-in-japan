@@ -1,12 +1,22 @@
+// backend/src/application/services/ITokenService.ts
 export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
 }
 
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+}
+
 export interface ITokenService {
-  generateToken(payload: TokenPayload): string;
-  verifyToken(token: string): TokenPayload | null;
+  generateTokenPair(payload: TokenPayload): TokenPair;
+  generateAccessToken(payload: TokenPayload): string;
   generateRefreshToken(userId: string): string;
-  verifyRefreshToken(refreshToken: string): string | null;
+  verifyAccessToken(token: string): TokenPayload | null;
+  verifyRefreshToken(token: string): string | null; // Returns userId
+  generatePasswordResetToken(userId: string, email: string): string; // Add this
+  generateCSRFToken(): string;
+  verifyCSRFToken(token: string): boolean;
 }

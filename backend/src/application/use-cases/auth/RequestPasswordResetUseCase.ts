@@ -11,22 +11,19 @@ export class RequestPasswordResetUseCase {
     private userRepository: IUserRepository,
     private emailService: IEmailService,
     private tokenService: ITokenService
-  ) {}
+  ) { }
 
   async execute(dto: RequestPasswordResetDTO): Promise<void> {
     const user = await this.userRepository.findByEmail(dto.email);
-    
+
     // Don't reveal if user exists or not for security
     if (!user) {
       return;
     }
 
     // Generate reset token
-    const resetToken = this.tokenService.generateToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    const resetToken = this.tokenService.generatePasswordResetToken(user.id, user.email);
+
 
     // Send reset email
     await this.emailService.sendPasswordResetEmail(user.email, resetToken);

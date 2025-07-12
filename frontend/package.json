@@ -21,6 +21,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "axios": "^1.10.0",
+    "canvas-confetti": "^1.9.3",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.18.1",
     "react": "^19.1.0",
@@ -57,5 +58,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0"
   }
 }

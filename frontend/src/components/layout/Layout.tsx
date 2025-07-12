@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   AppBar,
@@ -49,10 +49,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
-  
+
   const user = useSelector((state: RootState) => state.auth.user);
   const profile = useSelector((state: RootState) => state.profile.data);
-  
+
   const [anchorElUser, setAnchorElUser] = useState<null | HTMLElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -158,13 +158,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <MenuIcon />
             </IconButton>
           )}
-          
+
           <Typography
             variant="h6"
             component="div"
             sx={{ flexGrow: 1, fontWeight: 700, color: 'primary.main' }}
           >
-            Thrive in Japan
+            <Link to="/" style={{ color: "#FF6B6B", textDecoration: "none" }}>
+              Thrive in Japan
+            </Link>
           </Typography>
 
           <Stack direction="row" spacing={2} alignItems="center">
