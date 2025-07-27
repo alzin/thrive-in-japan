@@ -51,7 +51,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const dispatch = useDispatch<AppDispatch>();
 
   const user = useSelector((state: RootState) => state.auth.user);
-  const profile = useSelector((state: RootState) => state.profile.data);
+  const profile = useSelector((state: RootState) => state.dashboard.data);
+  const profilePhoto = useSelector((state: RootState) => state.profile.data?.profilePhoto);
 
   const [anchorElUser, setAnchorElUser] = useState<null | HTMLElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -122,12 +123,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <Stack spacing={1}>
           <Chip
             icon={<EmojiEvents />}
-            label={`${profile?.points || 0} Points`}
+            label={`${profile?.stats.totalPoints || "0"} Points`}
             color="primary"
             variant="outlined"
           />
           <Chip
-            label={`Level ${profile?.level || 1}`}
+            label={`Level ${profile?.user.level || "1"}`}
             color="secondary"
             size="small"
           />
@@ -178,8 +179,17 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <Avatar sx={{ bgcolor: 'primary.main' }}>
-                  {profile?.name?.[0] || user?.email[0].toUpperCase()}
+                <Avatar 
+                  src={profilePhoto || undefined}
+                  sx={{ 
+                    bgcolor: 'primary.main',
+                    width: 40,
+                    height: 40,
+                    border: '2px solid',
+                    borderColor: 'primary.light',
+                  }}
+                >
+                  {!profilePhoto && (profile?.user.name?.[0] || user?.email[0].toUpperCase())}
                 </Avatar>
               </IconButton>
             </Tooltip>
@@ -257,7 +267,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           flexGrow: 1,
           bgcolor: 'background.default',
           p: 0,
-          minHeight: '100vh',
+          minHeight: 'calc(100vh - 64px)',
           mt: '64px',
         }}
       >

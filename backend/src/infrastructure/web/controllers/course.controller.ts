@@ -1,3 +1,4 @@
+// backend/src/infrastructure/web/controllers/course.controller.ts
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { CourseRepository } from '../../database/repositories/CourseRepository';
@@ -15,7 +16,9 @@ export class CourseController {
   async getAllCourses(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const courseRepository = new CourseRepository();
-      const courses = await courseRepository.findAll(true);
+      const getOnlyActive = req.user?.role !== "ADMIN" ? true : undefined
+
+      const courses = await courseRepository.findAll(getOnlyActive);
       res.json(courses);
     } catch (error) {
       next(error);
@@ -27,7 +30,7 @@ export class CourseController {
       const { courseId } = req.params;
       const courseRepository = new CourseRepository();
       const course = await courseRepository.findById(courseId);
-      
+
       if (!course) {
         res.status(404).json({ error: 'Course not found' });
         return;
@@ -45,29 +48,42 @@ export class CourseController {
       const lessonRepository = new LessonRepository();
       const progressRepository = new ProgressRepository();
       const keywordRepository = new KeywordRepository();
-      
+
       const lessons = await lessonRepository.findByCourseId(courseId);
       const progress = await progressRepository.findByUserAndCourse(req.user!.userId, courseId);
-      
+
       const lessonsWithProgress = await Promise.all(lessons.map(async (lesson) => {
         const lessonProgress = progress.find(p => p.lessonId === lesson.id);
-        
-        // Fetch keywords if lesson type is KEYWORDS
-        let keywords: Keyword[] = [];
-        if (lesson.lessonType === 'KEYWORDS') {
-          keywords = await keywordRepository.findByLessonId(lesson.id);
-        }
-        
-        return {
-          ...lesson,
+
+        // Create the response object with all necessary fields
+        const lessonResponse: any = {
+          id: lesson.id,
+          courseId: lesson.courseId,
+          title: lesson.title,
+          description: lesson.description,
+          order: lesson.order,
+          lessonType: lesson.lessonType,
+          contentUrl: lesson.contentUrl,
+          contentData: lesson.contentData, // Include contentData
+          pointsReward: lesson.pointsReward,
+          requiresReflection: lesson.requiresReflection,
+          passingScore: lesson.passingScore, // Include passingScore
           isCompleted: lessonProgress?.isCompleted || false,
           completedAt: lessonProgress?.completedAt,
-          keywords
         };
+
+        // Fetch keywords if lesson type is KEYWORDS
+        if (lesson.lessonType === 'KEYWORDS') {
+          const keywords = await keywordRepository.findByLessonId(lesson.id);
+          lessonResponse.keywords = keywords;
+        }
+
+        return lessonResponse;
       }));
 
       res.json(lessonsWithProgress);
     } catch (error) {
+      console.error('Error in getCourseLessons:', error);
       next(error);
     }
   }
@@ -75,12 +91,7 @@ export class CourseController {
   async completeLesson(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { lessonId } = req.params;
-
-      // Safely handle undefined req.body
-      let reflectionContent = undefined;
-      if (req.body && typeof req.body === 'object') {
-        reflectionContent = req.body.reflectionContent;
-      }
+      const { reflectionContent, quizScore } = req.body || {};
 
       const completeLessonUseCase = new CompleteLessonUseCase(
         new LessonRepository(),
@@ -91,7 +102,8 @@ export class CourseController {
       const progress = await completeLessonUseCase.execute({
         userId: req.user!.userId,
         lessonId,
-        reflectionContent
+        reflectionContent,
+        quizScore
       });
 
       res.json({ message: 'Lesson completed successfully', progress });
@@ -103,7 +115,7 @@ export class CourseController {
   async enrollInCourse(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { courseId } = req.params;
-      
+
       const enrollmentRepository = new EnrollmentRepository();
       const enrollInCourseUseCase = new EnrollInCourseUseCase(
         new CourseRepository(),
@@ -116,9 +128,9 @@ export class CourseController {
         courseId
       });
 
-      res.status(201).json({ 
+      res.status(201).json({
         message: 'Successfully enrolled in course',
-        enrollment 
+        enrollment
       });
     } catch (error: any) {
       if (error.message.includes('Already enrolled')) {
@@ -133,7 +145,7 @@ export class CourseController {
     try {
       const enrollmentRepository = new EnrollmentRepository();
       const enrollments = await enrollmentRepository.findByUserId(req.user!.userId);
-      
+
       // Get course details for each enrollment
       const courseRepository = new CourseRepository();
       const enrollmentsWithCourses = await Promise.all(
@@ -153,7 +165,7 @@ export class CourseController {
     try {
       const { courseId } = req.params;
       const enrollmentRepository = new EnrollmentRepository();
-      
+
       const enrollment = await enrollmentRepository.findByUserAndCourse(
         req.user!.userId,
         courseId
@@ -165,14 +177,13 @@ export class CourseController {
     }
   }
 
-  // New method to get a single lesson with keywords
   async getLessonById(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { lessonId } = req.params;
       const lessonRepository = new LessonRepository();
       const keywordRepository = new KeywordRepository();
       const progressRepository = new ProgressRepository();
-      
+
       const lesson = await lessonRepository.findById(lessonId);
       if (!lesson) {
         res.status(404).json({ error: 'Lesson not found' });
@@ -181,19 +192,31 @@ export class CourseController {
 
       // Check progress
       const progress = await progressRepository.findByUserAndLesson(req.user!.userId, lessonId);
-      
-      // Fetch keywords if lesson type is KEYWORDS
-      let keywords: Keyword[] = [];
-      if (lesson.lessonType === 'KEYWORDS') {
-        keywords = await keywordRepository.findByLessonId(lessonId);
-      }
 
-      res.json({
-        ...lesson,
+      // Build response object
+      const lessonResponse: any = {
+        id: lesson.id,
+        courseId: lesson.courseId,
+        title: lesson.title,
+        description: lesson.description,
+        order: lesson.order,
+        lessonType: lesson.lessonType,
+        contentUrl: lesson.contentUrl,
+        contentData: lesson.contentData, // Include contentData
+        pointsReward: lesson.pointsReward,
+        requiresReflection: lesson.requiresReflection,
+        passingScore: lesson.passingScore, // Include passingScore
         isCompleted: progress?.isCompleted || false,
         completedAt: progress?.completedAt,
-        keywords
-      });
+      };
+
+      // Fetch keywords if lesson type is KEYWORDS
+      if (lesson.lessonType === 'KEYWORDS') {
+        const keywords = await keywordRepository.findByLessonId(lessonId);
+        lessonResponse.keywords = keywords;
+      }
+
+      res.json(lessonResponse);
     } catch (error) {
       next(error);
     }

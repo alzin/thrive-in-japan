@@ -26,11 +26,22 @@ export class PaymentRepository implements IPaymentRepository {
     return entity ? this.toDomain(entity) : null;
   }
 
-  async findByUserId(userId: string): Promise<Payment[]> {
-    const entities = await this.repository.find({ 
-      where: { userId },
-      order: { createdAt: 'DESC' }
-    });
+  async findByEmail(email: string): Promise<Payment[]> {
+    let entities: PaymentEntity[];
+
+    if (email && email.trim() !== '') {
+      // Find payments for specific email
+      entities = await this.repository.find({
+        where: { email },
+        order: { createdAt: 'DESC' }
+      });
+    } else {
+      // Find all payments when no email provided (for admin analytics)
+      entities = await this.repository.find({
+        order: { createdAt: 'DESC' }
+      });
+    }
+
     return entities.map(e => this.toDomain(e));
   }
 
@@ -43,7 +54,7 @@ export class PaymentRepository implements IPaymentRepository {
   private toDomain(entity: PaymentEntity): Payment {
     return {
       id: entity.id,
-      userId: entity.userId,
+      email: entity.email,
       stripePaymentIntentId: entity.stripePaymentIntentId,
       amount: entity.amount,
       currency: entity.currency,
@@ -57,7 +68,7 @@ export class PaymentRepository implements IPaymentRepository {
   private toEntity(payment: Payment): PaymentEntity {
     const entity = new PaymentEntity();
     entity.id = payment.id;
-    entity.userId = payment.userId;
+    entity.email = payment.email;
     entity.stripePaymentIntentId = payment.stripePaymentIntentId;
     entity.amount = payment.amount;
     entity.currency = payment.currency;

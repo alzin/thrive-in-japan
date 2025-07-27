@@ -15,8 +15,16 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ClassroomPage } from './pages/ClassroomPage';
 import { CommunityPage } from './pages/CommunityPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { PublicProfilePage } from './pages/PublicProfilePage'; // Add this import
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+
+// Registration Pages
+// import { EmailVerificationPage } from './pages/registration/EmailVerificationPage';
+// import { PaymentPlanPage } from './pages/registration/PaymentPlanPage';
+// import { CreateAccountPage } from './pages/registration/CreateAccountPage';
+// import { RegistrationCompletePage } from './pages/registration/RegistrationCompletePage';
+import { NewRegistrationPage } from './pages/NewRegistrationPage';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -31,6 +39,11 @@ import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
 
 import { CalendarPage } from './pages/CalendarPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { RegistrationSuccessPage } from './pages/RegistrationSuccessPage';
+import { SubscriptionPage } from './pages/SubscriptionPage';
+import { SubscriptionSuccessPage } from './pages/SubscriptionSuccessPage';
+import { fetchDashboardData } from './store/slices/dashboardSlice';
 
 function AppContent() {
   const dispatch = useDispatch<AppDispatch>();
@@ -39,6 +52,7 @@ function AppContent() {
   useEffect(() => {
     // Check auth status on app load
     dispatch(checkAuth());
+    dispatch(fetchDashboardData());
   }, [dispatch]);
 
   if (authChecking) {
@@ -61,6 +75,37 @@ function AppContent() {
     <Router>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+
+        {/* Public Routes (no authentication required) */}
+        <Route path="/profile/:userId" element={<PublicProfilePage />} /> {/* Add this route */}
+
+        {/* <Route path="/register/email" element={<EmailVerificationPage />} />
+        <Route path="/register/payment" element={<PaymentPlanPage />} />
+        <Route path="/register/account" element={<CreateAccountPage />} />
+        <Route path="/register/complete" element={<RegistrationCompletePage />} /> */}
+
+        <Route path="/register" element={<NewRegistrationPage />} />
+        <Route path="/register/verify" element={<VerifyEmailPage />} />
+        <Route path="/register/success" element={<RegistrationSuccessPage />} />
+
+        <Route
+          path="/subscription"
+          element={
+            <ProtectedRoute>
+              <SubscriptionPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/subscription/success"
+          element={
+            <ProtectedRoute>
+              <SubscriptionSuccessPage />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/login"
           element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}

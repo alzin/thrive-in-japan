@@ -11,14 +11,21 @@ export class EnrollmentEntity {
   @Column()
   userId!: string;
 
-  @ManyToOne(() => UserEntity)
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
+  })
   @JoinColumn({ name: 'userId' })
   user!: UserEntity;
 
   @Column()
   courseId!: string;
 
-  @ManyToOne(() => CourseEntity)
+  @ManyToOne(() => CourseEntity, course => course.lessons, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
+  })
+
   @JoinColumn({ name: 'courseId' })
   course!: CourseEntity;
 

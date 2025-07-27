@@ -26,6 +26,7 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  Snackbar,
 } from '@mui/material';
 import {
   Search,
@@ -35,6 +36,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import api from '../../services/api';
+import { useSweetAlert } from '../../utils/sweetAlert';
 
 interface User {
   id: string;
@@ -51,6 +53,7 @@ interface User {
 }
 
 export const UserManagement: React.FC = () => {
+  const { showConfirm, showError } = useSweetAlert();
   const [users, setUsers] = useState<User[]>([]);
   // const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -60,6 +63,11 @@ export const UserManagement: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [pointsDialog, setPointsDialog] = useState(false);
   const [pointsData, setPointsData] = useState({ points: 0, reason: '' });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -97,32 +105,64 @@ export const UserManagement: React.FC = () => {
   };
 
   const toggleUserStatus = async (user: User) => {
-    try {
-      await api.put(`/admin/users/${user.id}/status`, {
-        isActive: !user.isActive,
-      });
-      fetchUsers();
-    } catch (error) {
-      console.error('Failed to update user status:', error);
+    const action = user.isActive ? 'deactivate' : 'activate';
+    const result = await showConfirm({
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)} User`,
+      text: `Are you sure you want to ${action} ${user.profile?.name || user.email}?`,
+      icon: 'warning',
+      confirmButtonText: `Yes, ${action}`,
+      cancelButtonText: 'Cancel',
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.put(`/admin/users/${user.id}/status`, {
+          isActive: !user.isActive,
+        });
+        setSnackbar({
+          open: true,
+          message: `User ${action}d successfully!`,
+          severity: 'success'
+        });
+        fetchUsers();
+      } catch (error) {
+        console.error('Failed to update user status:', error);
+        showError('Error', `Failed to ${action} user`);
+      }
     }
   };
 
   const handlePointsAdjustment = async () => {
-    if (!selectedUser || !pointsData.reason) return;
+    if (!selectedUser || !pointsData.reason) {
+      showError('Validation Error', 'Please provide a reason for the points adjustment');
+      return;
+    }
+
+    if (pointsData.points === 0) {
+      showError('Validation Error', 'Please enter a points value (positive or negative)');
+      return;
+    }
 
     try {
       await api.post(`/admin/users/${selectedUser.id}/points`, pointsData);
+      setSnackbar({
+        open: true,
+        message: 'Points adjusted successfully!',
+        severity: 'success'
+      });
       setPointsDialog(false);
-      setPointsData({ points: 0, reason: '' });
+      setPointsData({ points: 0, reason: "" });
       fetchUsers();
     } catch (error) {
-      console.error('Failed to adjust points:', error);
+      console.error("Failed to adjust points:", error);
+      showError("Error", "Failed to adjust points");
     }
   };
 
-  const filteredUsers = users.filter(user =>
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.profile?.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = users.filter(
+    (user) =>
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.profile?.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -289,6 +329,21 @@ export const UserManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

@@ -34,11 +34,12 @@ export const ForgotPasswordPage: React.FC = () => {
             await api.post('/auth/forgot-password', { email });
             setSuccess(true);
         } catch (err: any) {
+            console.log(err)
             // Check for rate limiting
             if (err.response?.status === 429) {
                 setError('Too many requests. Please try again later.');
             } else {
-                setError('An error occurred. Please try again.');
+                setError(err.response.data.error.message);
             }
         } finally {
             setLoading(false);
@@ -199,11 +200,11 @@ export const ForgotPasswordPage: React.FC = () => {
                                 </Stack>
                             </form>
 
-                            <Alert severity="info" sx={{ mt: 3 }}>
+                            {/* <Alert severity="info" sx={{ mt: 3 }}>
                                 <Typography variant="caption">
                                     For security reasons, we'll always say we've sent an email, even if the address isn't registered.
                                 </Typography>
-                            </Alert>
+                            </Alert> */}
                         </CardContent>
                     </Card>
                 </motion.div>
