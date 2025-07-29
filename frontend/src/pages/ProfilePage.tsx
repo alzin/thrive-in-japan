@@ -1,5 +1,5 @@
 // frontend/src/pages/ProfilePage.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -34,6 +34,13 @@ import {
   ListItemIcon,
   ListItemText,
   Alert,
+  Snackbar,
+  CircularProgress,
+  Menu,
+  Switch,
+  FormControlLabel,
+  Divider,
+  Link,
 } from '@mui/material';
 import {
   Edit,
@@ -55,10 +62,35 @@ import {
   Share,
   Download,
   CameraAlt,
+  Delete,
+  CloudUpload,
+  SaveAlt,
+  Cancel,
+  Notifications,
+  Security,
+  Palette,
+  Email,
+  Phone,
+  Visibility,
+  VisibilityOff,
+  Facebook,
+  Twitter,
+  LinkedIn,
+  WhatsApp,
+  ContentCopy,
+  Close,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSelector } from 'react-redux';
-import { RootState } from '../store/store';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../store/store';
+import { 
+  fetchMyProfile, 
+  updateProfile, 
+  uploadProfilePhoto, 
+  deleteProfilePhoto,
+  clearError
+} from '../store/slices/profileSlice';
+import { UpdateProfileData, profileService } from '../services/profileService';
 
 interface Achievement {
   id: string;
@@ -66,8 +98,6 @@ interface Achievement {
   title: string;
   description: string;
   unlockedAt?: string;
-  progress?: number;
-  total?: number;
   rarity?: 'common' | 'rare' | 'epic' | 'legendary';
 }
 
@@ -80,6 +110,27 @@ interface Milestone {
   description: string;
 }
 
+interface UserSettings {
+  notifications: {
+    email: boolean;
+    push: boolean;
+    lessonReminders: boolean;
+    achievements: boolean;
+    communityUpdates: boolean;
+  };
+  privacy: {
+    profileVisibility: 'public' | 'friends' | 'private';
+    showProgress: boolean;
+    showAchievements: boolean;
+    allowMessages: boolean;
+  };
+  preferences: {
+    theme: 'light' | 'dark' | 'auto';
+    language: 'en' | 'ja';
+    timezone: string;
+  };
+}
+
 const rarityColors = {
   common: '#636E72',
   rare: '#0984E3',
@@ -90,17 +141,105 @@ const rarityColors = {
 export const ProfilePage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const dispatch = useDispatch<AppDispatch>();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Redux state
+  const { data: profile, loading, updateLoading, photoUploadLoading, error } = useSelector((state: RootState) => state.profile);
+  const user = useSelector((state: RootState) => state.auth.user);
+
+  // Local state
   const [tabValue, setTabValue] = useState(0);
   const [editing, setEditing] = useState(false);
   const [coverImageDialog, setCoverImageDialog] = useState(false);
-  const profile = useSelector((state: RootState) => state.profile.data);
-  const user = useSelector((state: RootState) => state.auth.user);
-
-  const [formData, setFormData] = useState({
-    name: profile?.name || '',
-    bio: profile?.bio || '',
-    languageLevel: profile?.languageLevel || 'N5',
+  const [photoMenuAnchor, setPhotoMenuAnchor] = useState<null | HTMLElement>(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  
+  // Real profile data state
+  const [publicProfileData, setPublicProfileData] = useState<any>(null);
+  const [loadingPublicData, setLoadingPublicData] = useState(false);
+  
+  // New state for button functionalities
+  const [shareDialog, setShareDialog] = useState(false);
+  const [settingsDialog, setSettingsDialog] = useState(false);
+  const [certificateLoading, setCertificateLoading] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [settings, setSettings] = useState<UserSettings>({
+    notifications: {
+      email: true,
+      push: true,
+      lessonReminders: true,
+      achievements: true,
+      communityUpdates: false,
+    },
+    privacy: {
+      profileVisibility: 'public',
+      showProgress: true,
+      showAchievements: true,
+      allowMessages: true,
+    },
+    preferences: {
+      theme: 'light',
+      language: 'en',
+      timezone: 'UTC',
+    },
   });
+
+  const [formData, setFormData] = useState<UpdateProfileData>({
+    name: '',
+    bio: '',
+    languageLevel: 'N5',
+  });
+
+  // Initialize form data when profile loads
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        name: profile.name || '',
+        bio: profile.bio || '',
+        languageLevel: profile.languageLevel || 'N5',
+      });
+    }
+  }, [profile]);
+
+  // Generate share URL
+  useEffect(() => {
+    if (profile?.userId) {
+      setShareUrl(`${window.location.origin}/profile/${profile.userId}`);
+    }
+  }, [profile]);
+
+  // Fetch profile on component mount
+  useEffect(() => {
+    dispatch(fetchMyProfile());
+  }, [dispatch]);
+
+  // Fetch real profile data
+  useEffect(() => {
+    const fetchRealProfileData = async () => {
+      if (profile?.userId) {
+        setLoadingPublicData(true);
+        try {
+          const realData = await profileService.getPublicProfile(profile.userId);
+          setPublicProfileData(realData);
+        } catch (error) {
+          console.error('Failed to fetch real profile data:', error);
+        } finally {
+          setLoadingPublicData(false);
+        }
+      }
+    };
+
+    fetchRealProfileData();
+  }, [profile?.userId]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      setSnackbar({ open: true, message: error, severity: 'error' });
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
 
   // Calculate profile completion
   const profileCompletion = () => {
@@ -114,107 +253,221 @@ export const ProfilePage: React.FC = () => {
     return (completed / total) * 100;
   };
 
-  const achievements: Achievement[] = [
-    {
-      id: '1',
-      icon: '🔥',
-      title: '7-Day Streak',
-      description: 'Study for 7 days in a row',
-      unlockedAt: '2024-01-15',
-      rarity: 'common'
-    },
-    {
-      id: '2',
-      icon: '🌸',
-      title: 'First Steps',
-      description: 'Complete your first lesson',
-      unlockedAt: '2024-01-10',
-      rarity: 'common'
-    },
-    {
-      id: '3',
-      icon: '💬',
-      title: 'Community Champion',
-      description: 'Make 50 posts in the community',
-      unlockedAt: '2024-01-20',
-      progress: 35,
-      total: 50,
-      rarity: 'rare'
-    },
-    {
-      id: '4',
-      icon: '🎯',
-      title: 'Quiz Master',
-      description: 'Score 100% on 10 quizzes',
-      progress: 3,
-      total: 10,
-      rarity: 'epic'
-    },
-    {
-      id: '5',
-      icon: '🗣️',
-      title: 'Conversation Expert',
-      description: 'Complete 25 speaking sessions',
-      progress: 5,
-      total: 25,
-      rarity: 'rare'
-    },
-    {
-      id: '6',
-      icon: '📚',
-      title: 'Course Completionist',
-      description: 'Finish all available courses',
-      progress: 1,
-      total: 4,
-      rarity: 'legendary'
-    },
-  ];
+  const handleSaveProfile = async () => {
+    try {
+      await dispatch(updateProfile(formData)).unwrap();
+      setEditing(false);
+      setSnackbar({ open: true, message: 'Profile updated successfully!', severity: 'success' });
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+    }
+  };
 
-  const milestones: Milestone[] = [
-    {
-      id: '1',
-      title: 'Started Journey',
-      icon: <Star />,
-      achieved: true,
-      date: '2024-01-10',
-      description: 'Joined Thrive in Japan',
-    },
-    {
-      id: '2',
-      title: 'First Lesson',
-      icon: <School />,
-      achieved: true,
-      date: '2024-01-11',
-      description: 'Completed first lesson',
-    },
-    {
-      id: '3',
-      title: 'Community Active',
-      icon: <Forum />,
-      achieved: true,
-      date: '2024-01-15',
-      description: 'Made first community post',
-    },
-    {
-      id: '4',
-      title: 'Speaking Practice',
-      icon: <VideoCall />,
-      achieved: false,
-      description: 'Complete first speaking session',
-    },
-    {
-      id: '5',
-      title: 'JLPT Ready',
-      icon: <WorkspacePremium />,
-      achieved: false,
-      description: 'Complete JLPT N5 course',
-    },
-  ];
+  const handleCancelEdit = () => {
+    if (profile) {
+      setFormData({
+        name: profile.name || '',
+        bio: profile.bio || '',
+        languageLevel: profile.languageLevel || 'N5',
+      });
+    }
+    setEditing(false);
+  };
 
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      await dispatch(uploadProfilePhoto(file)).unwrap();
+      setSnackbar({ open: true, message: 'Profile photo updated successfully!', severity: 'success' });
+      setPhotoMenuAnchor(null);
+    } catch (error) {
+      console.error('Failed to upload photo:', error);
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handlePhotoDelete = async () => {
+    try {
+      await dispatch(deleteProfilePhoto()).unwrap();
+      setSnackbar({ open: true, message: 'Profile photo deleted successfully!', severity: 'success' });
+      setPhotoMenuAnchor(null);
+    } catch (error) {
+      console.error('Failed to delete photo:', error);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+    setPhotoMenuAnchor(null);
+  };
+
+  // Share Profile Functionality
+  const handleShareProfile = () => {
+    setShareDialog(true);
+  };
+
+  const copyShareUrl = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setSnackbar({ open: true, message: 'Profile URL copied to clipboard!', severity: 'success' });
+  };
+
+  const shareToSocial = (platform: string) => {
+    const message = `Check out my Japanese learning progress on Thrive in Japan!`;
+    const encodedUrl = encodeURIComponent(shareUrl);
+    const encodedMessage = encodeURIComponent(message);
+    
+    let shareUrl_platform = '';
+    
+    switch (platform) {
+      case 'facebook':
+        shareUrl_platform = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+        break;
+      case 'twitter':
+        shareUrl_platform = `https://twitter.com/intent/tweet?text=${encodedMessage}&url=${encodedUrl}`;
+        break;
+      case 'linkedin':
+        shareUrl_platform = `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
+        break;
+      case 'whatsapp':
+        shareUrl_platform = `https://wa.me/?text=${encodedMessage} ${encodedUrl}`;
+        break;
+    }
+    
+    window.open(shareUrl_platform, '_blank', 'width=600,height=400');
+  };
+
+  // Download Certificate Functionality
+  const handleDownloadCertificate = async () => {
+    setCertificateLoading(true);
+    
+    try {
+      // Simulate certificate generation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Create a mock certificate download
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d');
+      
+      if (ctx) {
+        // Background
+        ctx.fillStyle = '#f8f9fa';
+        ctx.fillRect(0, 0, 800, 600);
+        
+        // Border
+        ctx.strokeStyle = '#FF6B6B';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(20, 20, 760, 560);
+        
+        // Title
+        ctx.fillStyle = '#2c3e50';
+        ctx.font = 'bold 36px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Certificate of Achievement', 400, 120);
+        
+        // Subtitle
+        ctx.font = '24px Arial';
+        ctx.fillText('Thrive in Japan', 400, 160);
+        
+        // Name
+        ctx.font = 'bold 32px Arial';
+        ctx.fillStyle = '#FF6B6B';
+        ctx.fillText(profile?.name || 'Student', 400, 250);
+        
+        // Description
+        ctx.fillStyle = '#2c3e50';
+        ctx.font = '20px Arial';
+        ctx.fillText('has successfully completed', 400, 300);
+        ctx.fillText(`${publicProfileData?.totalLessonsCompleted || 0} lessons in Japanese language learning`, 400, 330);
+        
+        // Level
+        ctx.font = 'bold 24px Arial';
+        ctx.fillStyle = '#4ECDC4';
+        ctx.fillText(`Current Level: JLPT ${profile?.languageLevel || 'N5'}`, 400, 380);
+        
+        // Points
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText(`Total Points Earned: ${publicProfileData?.totalPoints || profile?.points || 0}`, 400, 420);
+        
+        // Date
+        ctx.fillStyle = '#2c3e50';
+        ctx.font = '16px Arial';
+        ctx.fillText(`Issued on: ${new Date().toLocaleDateString()}`, 400, 500);
+      }
+      
+      // Download the certificate
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${profile?.name || 'Student'}_Japanese_Learning_Certificate.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          setSnackbar({ open: true, message: 'Certificate downloaded successfully!', severity: 'success' });
+        }
+      });
+      
+    } catch (error) {
+      setSnackbar({ open: true, message: 'Failed to generate certificate. Please try again.', severity: 'error' });
+    } finally {
+      setCertificateLoading(false);
+    }
+  };
+
+  // Settings Functionality
+  const handleOpenSettings = () => {
+    setSettingsDialog(true);
+  };
+
+  const handleSaveSettings = () => {
+    // Here you would typically save settings to your backend
+    setSnackbar({ open: true, message: 'Settings saved successfully!', severity: 'success' });
+    setSettingsDialog(false);
+  };
+
+  const updateSettings = (section: keyof UserSettings, key: string, value: any) => {
+    setSettings(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [key]: value,
+      },
+    }));
+  };
+
+  // Use real data for achievements
+  const achievements: Achievement[] = publicProfileData?.publicAchievements || [];
+
+  // Use real data for milestones
+  const milestones: Milestone[] = publicProfileData?.recentMilestones?.map((milestone: any) => ({
+    id: milestone.title,
+    title: milestone.title,
+    icon: milestone.type === 'lesson' ? <School /> :
+          milestone.type === 'level' ? <Star /> :
+          milestone.type === 'community' ? <Forum /> :
+          milestone.type === 'achievement' ? <EmojiEvents /> :
+          <WorkspacePremium />,
+    achieved: true,
+    date: milestone.date,
+    description: milestone.details || milestone.title,
+  })) || [];
+
+  // Use real data for stats
   const stats = [
     {
       label: 'Total Points',
-      value: profile?.points || 0,
+      value: publicProfileData?.totalPoints || profile?.points || 0,
       icon: <EmojiEvents sx={{ color: '#FFD700' }} />,
       color: '#FFD700',
       description: 'Lifetime earnings'
@@ -228,24 +481,19 @@ export const ProfilePage: React.FC = () => {
     },
     {
       label: 'Lessons Completed',
-      value: 12,
+      value: publicProfileData?.totalLessonsCompleted || 0,
       icon: <School sx={{ color: '#4ECDC4' }} />,
       color: '#4ECDC4',
-      description: 'Out of 30 total'
+      description: `Out of ${publicProfileData?.totalLessonsAvailable || 0} total`
     },
     {
       label: 'Study Streak',
-      value: '7 days',
+      value: `${publicProfileData?.joinedDaysAgo || 0} days`,
       icon: <Star sx={{ color: '#FFB7C5' }} />,
       color: '#FFB7C5',
-      description: 'Your best: 7 days'
+      description: 'Days since joining'
     },
   ];
-
-  const handleSaveProfile = () => {
-    // Save profile logic here
-    setEditing(false);
-  };
 
   const AchievementCard = ({ achievement }: { achievement: Achievement }) => {
     const isUnlocked = !!achievement.unlockedAt;
@@ -302,34 +550,9 @@ export const ProfilePage: React.FC = () => {
                   {achievement.description}
                 </Typography>
               </Box>
-              {achievement.progress !== undefined && achievement.total && (
-                <Box>
-                  <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                    <Typography variant="caption" color="text.secondary">
-                      Progress
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {achievement.progress}/{achievement.total}
-                    </Typography>
-                  </Stack>
-                  <LinearProgress
-                    variant="determinate"
-                    value={(achievement.progress / achievement.total) * 100}
-                    sx={{
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: 'action.hover',
-                      '& .MuiLinearProgress-bar': {
-                        borderRadius: 3,
-                        backgroundColor: rarityColors[achievement.rarity || 'common'],
-                      },
-                    }}
-                  />
-                </Box>
-              )}
               {isUnlocked && achievement.unlockedAt && (
                 <Typography variant="caption" color="primary" sx={{ textAlign: 'center' }}>
-                  Unlocked {achievement.unlockedAt}
+                  Unlocked {new Date(achievement.unlockedAt).toLocaleDateString()}
                 </Typography>
               )}
             </Stack>
@@ -338,6 +561,14 @@ export const ProfilePage: React.FC = () => {
       </motion.div>
     );
   };
+
+  if (loading || loadingPublicData) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -360,20 +591,6 @@ export const ProfilePage: React.FC = () => {
             background: 'rgba(0,0,0,0.2)',
           }}
         />
-        <Container maxWidth="lg" sx={{ height: '100%', position: 'relative' }}>
-          <IconButton
-            sx={{
-              position: 'absolute',
-              bottom: 20,
-              right: 20,
-              bgcolor: 'rgba(255,255,255,0.9)',
-              '&:hover': { bgcolor: 'white' },
-            }}
-            onClick={() => setCoverImageDialog(true)}
-          >
-            <CameraAlt />
-          </IconButton>
-        </Container>
       </Box>
 
       <Container maxWidth="lg" sx={{ mt: -8, mb: 4, position: 'relative', zIndex: 1 }}>
@@ -388,6 +605,8 @@ export const ProfilePage: React.FC = () => {
                   badgeContent={
                     <IconButton
                       size="small"
+                      onClick={(e) => setPhotoMenuAnchor(e.currentTarget)}
+                      disabled={photoUploadLoading}
                       sx={{
                         bgcolor: 'primary.main',
                         color: 'white',
@@ -395,7 +614,11 @@ export const ProfilePage: React.FC = () => {
                         '&:hover': { bgcolor: 'primary.dark' },
                       }}
                     >
-                      <PhotoCamera fontSize="small" />
+                      {photoUploadLoading ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : (
+                        <PhotoCamera fontSize="small" />
+                      )}
                     </IconButton>
                   }
                 >
@@ -412,6 +635,35 @@ export const ProfilePage: React.FC = () => {
                     {profile?.name?.[0] || 'U'}
                   </Avatar>
                 </Badge>
+
+                {/* Photo Menu */}
+                <Menu
+                  anchorEl={photoMenuAnchor}
+                  open={Boolean(photoMenuAnchor)}
+                  onClose={() => setPhotoMenuAnchor(null)}
+                  transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                  anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                >
+                  <MenuItem onClick={triggerFileInput}>
+                    <CloudUpload sx={{ mr: 1 }} />
+                    {profile?.profilePhoto ? "Update Photo" : "Upload Photo"}
+                  </MenuItem>
+                  {profile?.profilePhoto && (
+                    <MenuItem onClick={handlePhotoDelete} sx={{ color: 'error.main' }}>
+                      <Delete sx={{ mr: 1 }} />
+                      Delete Photo
+                    </MenuItem>
+                  )}
+                </Menu>
+
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style={{ display: 'none' }}
+                  onChange={handlePhotoUpload}
+                />
               </Grid>
 
               <Grid size={{ xs: 12, md: 6 }}>
@@ -422,6 +674,9 @@ export const ProfilePage: React.FC = () => {
                       label="Name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      disabled={updateLoading}
+                      error={!formData.name?.trim()}
+                      helperText={!formData.name?.trim() ? 'Name is required' : ''}
                     />
                     <TextField
                       fullWidth
@@ -430,8 +685,11 @@ export const ProfilePage: React.FC = () => {
                       label="Bio"
                       value={formData.bio}
                       onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                      disabled={updateLoading}
+                      inputProps={{ maxLength: 500 }}
+                      helperText={`${formData.bio?.length || 0}/500 characters`}
                     />
-                    <FormControl fullWidth>
+                    <FormControl fullWidth disabled={updateLoading}>
                       <InputLabel>Language Level</InputLabel>
                       <Select
                         value={formData.languageLevel}
@@ -477,14 +735,18 @@ export const ProfilePage: React.FC = () => {
                     <>
                       <Button
                         variant="contained"
+                        startIcon={updateLoading ? <CircularProgress size={16} /> : <SaveAlt />}
                         onClick={handleSaveProfile}
+                        disabled={updateLoading || !formData.name?.trim()}
                         fullWidth={isMobile}
                       >
-                        Save Changes
+                        {updateLoading ? 'Saving...' : 'Save Changes'}
                       </Button>
                       <Button
                         variant="outlined"
-                        onClick={() => setEditing(false)}
+                        startIcon={<Cancel />}
+                        onClick={handleCancelEdit}
+                        disabled={updateLoading}
                         fullWidth={isMobile}
                       >
                         Cancel
@@ -502,17 +764,24 @@ export const ProfilePage: React.FC = () => {
                       </Button>
                       <Stack direction="row" spacing={1}>
                         <Tooltip title="Share Profile">
-                          <IconButton>
+                          <IconButton onClick={handleShareProfile}>
                             <Share />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Download Certificate">
-                          <IconButton>
-                            <Download />
+                          <IconButton 
+                            onClick={handleDownloadCertificate}
+                            disabled={certificateLoading}
+                          >
+                            {certificateLoading ? (
+                              <CircularProgress size={20} />
+                            ) : (
+                              <Download />
+                            )}
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Settings">
-                          <IconButton>
+                          <IconButton onClick={handleOpenSettings}>
                             <Settings />
                           </IconButton>
                         </Tooltip>
@@ -674,7 +943,32 @@ export const ProfilePage: React.FC = () => {
                         Skills Overview
                       </Typography>
                       <Stack spacing={3}>
-                        {[
+                        {publicProfileData?.learningStats?.map((skill: any) => (
+                          <Box key={skill.skill}>
+                            <Stack direction="row" justifyContent="space-between" mb={1}>
+                              <Typography variant="body2" fontWeight={500}>
+                                {skill.skill}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {skill.level}%
+                              </Typography>
+                            </Stack>
+                            <LinearProgress
+                              variant="determinate"
+                              value={skill.level}
+                              sx={{
+                                height: 8,
+                                borderRadius: 4,
+                                backgroundColor: 'action.hover',
+                                '& .MuiLinearProgress-bar': {
+                                  borderRadius: 4,
+                                  backgroundColor: skill.color,
+                                },
+                              }}
+                            />
+                          </Box>
+                        )) || [
+                          // Fallback data if no real data available
                           { skill: 'Vocabulary', level: 60, color: '#FF6B6B' },
                           { skill: 'Grammar', level: 45, color: '#4ECDC4' },
                           { skill: 'Listening', level: 30, color: '#FFB7C5' },
@@ -770,11 +1064,40 @@ export const ProfilePage: React.FC = () => {
                         Course Progress
                       </Typography>
                       <Stack spacing={3}>
-                        {[
+                        {publicProfileData?.courseProgress?.map((course: any) => (
+                          <Paper key={course.courseTitle} sx={{ p: 3 }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                              <Box>
+                                <Typography variant="subtitle1" fontWeight={600}>
+                                  {course.courseTitle}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {course.completedLessons}/{course.totalLessons} lessons completed
+                                </Typography>
+                              </Box>
+                            </Stack>
+                            <LinearProgress
+                              variant="determinate"
+                              value={course.progressPercentage}
+                              sx={{
+                                height: 10,
+                                borderRadius: 5,
+                                backgroundColor: 'action.hover',
+                                '& .MuiLinearProgress-bar': {
+                                  borderRadius: 5,
+                                  backgroundColor: '#4ECDC4',
+                                },
+                              }}
+                            />
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                              {course.progressPercentage}% Complete
+                            </Typography>
+                          </Paper>
+                        )) || 
+                        // Fallback if no real data
+                        [
                           { course: 'Japan in Context', progress: 40, lessons: '4/10', color: '#FF6B6B' },
                           { course: 'JLPT N5 Preparation', progress: 25, lessons: '3/12', color: '#4ECDC4' },
-                          { course: 'Business Japanese', progress: 0, lessons: '0/8', color: '#FFB7C5', locked: true },
-                          { course: 'Cultural Immersion', progress: 0, lessons: '0/6', color: '#00B894', locked: true },
                         ].map((course) => (
                           <Paper key={course.course} sx={{ p: 3 }}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
@@ -786,9 +1109,6 @@ export const ProfilePage: React.FC = () => {
                                   {course.lessons} lessons completed
                                 </Typography>
                               </Box>
-                              {course.locked && (
-                                <Chip icon={<Lock />} label="Locked" size="small" />
-                              )}
                             </Stack>
                             <LinearProgress
                               variant="determinate"
@@ -924,7 +1244,7 @@ export const ProfilePage: React.FC = () => {
                               label={activity.points}
                               color="success"
                               size="small"
-                              sx={{ fontWeight: 600 }}
+                              sx={{ fontWeight: 600, color: "white" }}
                             />
                           </Stack>
                         </Paper>
@@ -937,6 +1257,273 @@ export const ProfilePage: React.FC = () => {
           </CardContent>
         </Card>
       </Container>
+
+      {/* Share Profile Dialog */}
+      <Dialog 
+        open={shareDialog} 
+        onClose={() => setShareDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            Share Your Profile
+            <IconButton onClick={() => setShareDialog(false)}>
+              <Close />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3}>
+            <Box>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Share your learning progress with friends and family
+              </Typography>
+              <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all' }}>
+                    {shareUrl}
+                  </Typography>
+                  <IconButton onClick={copyShareUrl} size="small">
+                    <ContentCopy />
+                  </IconButton>
+                </Stack>
+              </Paper>
+            </Box>
+            
+            <Divider />
+            
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Share on Social Media
+              </Typography>
+              <Stack direction="row" spacing={2}>
+                <IconButton 
+                  onClick={() => shareToSocial('facebook')}
+                  sx={{ bgcolor: '#1877F2', color: 'white', '&:hover': { bgcolor: '#166FE5' } }}
+                >
+                  <Facebook />
+                </IconButton>
+                <IconButton 
+                  onClick={() => shareToSocial('twitter')}
+                  sx={{ bgcolor: '#1DA1F2', color: 'white', '&:hover': { bgcolor: '#1A91DA' } }}
+                >
+                  <Twitter />
+                </IconButton>
+                <IconButton 
+                  onClick={() => shareToSocial('linkedin')}
+                  sx={{ bgcolor: '#0A66C2', color: 'white', '&:hover': { bgcolor: '#095BA8' } }}
+                >
+                  <LinkedIn />
+                </IconButton>
+                <IconButton 
+                  onClick={() => shareToSocial('whatsapp')}
+                  sx={{ bgcolor: '#25D366', color: 'white', '&:hover': { bgcolor: '#22C75D' } }}
+                >
+                  <WhatsApp />
+                </IconButton>
+              </Stack>
+            </Box>
+          </Stack>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog */}
+      <Dialog 
+        open={settingsDialog} 
+        onClose={() => setSettingsDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            Profile Settings
+            <IconButton onClick={() => setSettingsDialog(false)}>
+              <Close />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={4}>
+            {/* Notification Settings */}
+            <Box>
+              <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                <Notifications color="primary" />
+                <Typography variant="h6">Notifications</Typography>
+              </Stack>
+              <Stack spacing={2}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.notifications.email}
+                      onChange={(e) => updateSettings('notifications', 'email', e.target.checked)}
+                    />
+                  }
+                  label="Email notifications"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.notifications.push}
+                      onChange={(e) => updateSettings('notifications', 'push', e.target.checked)}
+                    />
+                  }
+                  label="Push notifications"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.notifications.lessonReminders}
+                      onChange={(e) => updateSettings('notifications', 'lessonReminders', e.target.checked)}
+                    />
+                  }
+                  label="Lesson reminders"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.notifications.achievements}
+                      onChange={(e) => updateSettings('notifications', 'achievements', e.target.checked)}
+                    />
+                  }
+                  label="Achievement notifications"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.notifications.communityUpdates}
+                      onChange={(e) => updateSettings('notifications', 'communityUpdates', e.target.checked)}
+                    />
+                  }
+                  label="Community updates"
+                />
+              </Stack>
+            </Box>
+
+            <Divider />
+
+            {/* Privacy Settings */}
+            <Box>
+              <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                <Security color="primary" />
+                <Typography variant="h6">Privacy</Typography>
+              </Stack>
+              <Stack spacing={2}>
+                <FormControl fullWidth>
+                  <InputLabel>Profile Visibility</InputLabel>
+                  <Select
+                    value={settings.privacy.profileVisibility}
+                    label="Profile Visibility"
+                    onChange={(e) => updateSettings('privacy', 'profileVisibility', e.target.value)}
+                  >
+                    <MenuItem value="public">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Visibility fontSize="small" />
+                        <span>Public</span>
+                      </Stack>
+                    </MenuItem>
+                    <MenuItem value="friends">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <VisibilityOff fontSize="small" />
+                        <span>Friends Only</span>
+                      </Stack>
+                    </MenuItem>
+                    <MenuItem value="private">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Lock fontSize="small" />
+                        <span>Private</span>
+                      </Stack>
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.privacy.showProgress}
+                      onChange={(e) => updateSettings('privacy', 'showProgress', e.target.checked)}
+                    />
+                  }
+                  label="Show learning progress"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.privacy.showAchievements}
+                      onChange={(e) => updateSettings('privacy', 'showAchievements', e.target.checked)}
+                    />
+                  }
+                  label="Show achievements"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.privacy.allowMessages}
+                      onChange={(e) => updateSettings('privacy', 'allowMessages', e.target.checked)}
+                    />
+                  }
+                  label="Allow messages from other users"
+                />
+              </Stack>
+            </Box>
+
+            <Divider />
+
+            {/* Preferences */}
+            <Box>
+              <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                <Palette color="primary" />
+                <Typography variant="h6">Preferences</Typography>
+              </Stack>
+              <Stack spacing={2}>
+                <FormControl fullWidth>
+                  <InputLabel>Theme</InputLabel>
+                  <Select
+                    value={settings.preferences.theme}
+                    label="Theme"
+                    onChange={(e) => updateSettings('preferences', 'theme', e.target.value)}
+                  >
+                    <MenuItem value="light">Light</MenuItem>
+                    <MenuItem value="dark">Dark</MenuItem>
+                    <MenuItem value="auto">Auto</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth>
+                  <InputLabel>Language</InputLabel>
+                  <Select
+                    value={settings.preferences.language}
+                    label="Language"
+                    onChange={(e) => updateSettings('preferences', 'language', e.target.value)}
+                  >
+                    <MenuItem value="en">English</MenuItem>
+                    <MenuItem value="ja">日本語</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth>
+                  <InputLabel>Timezone</InputLabel>
+                  <Select
+                    value={settings.preferences.timezone}
+                    label="Timezone"
+                    onChange={(e) => updateSettings('preferences', 'timezone', e.target.value)}
+                  >
+                    <MenuItem value="UTC">UTC</MenuItem>
+                    <MenuItem value="America/New_York">Eastern Time</MenuItem>
+                    <MenuItem value="America/Los_Angeles">Pacific Time</MenuItem>
+                    <MenuItem value="Asia/Tokyo">Japan Time</MenuItem>
+                  </Select>
+                </FormControl>
+              </Stack>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSettingsDialog(false)}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleSaveSettings}>
+            Save Settings
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Cover Image Dialog */}
       <Dialog open={coverImageDialog} onClose={() => setCoverImageDialog(false)}>
@@ -951,6 +1538,21 @@ export const ProfilePage: React.FC = () => {
           <Button variant="contained">Upload Image</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
